@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "Vitals",
+    name: "Chrono",
     platforms: [.macOS(.v14)],
     targets: [
         .target(
@@ -10,7 +10,7 @@ let package = Package(
             linkerSettings: [.linkedFramework("IOKit"), .linkedFramework("CoreFoundation")]
         ),
         .executableTarget(
-            name: "Vitals",
+            name: "Chrono",
             dependencies: ["CSensors"],
             linkerSettings: [
                 .linkedFramework("IOKit"),
@@ -18,6 +18,7 @@ let package = Package(
                 .linkedFramework("ServiceManagement"),
             ]
         ),
+        .testTarget(name: "ChronoTests", dependencies: ["Chrono"]),
     ],
     swiftLanguageModes: [.v5]
 )

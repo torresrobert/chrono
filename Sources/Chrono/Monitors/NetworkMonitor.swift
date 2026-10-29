@@ -13,7 +13,7 @@ struct NetworkSample {
 
 final class NetworkMonitor {
     private var previous: (sent: UInt64, received: UInt64, time: Double)?
-    private let store = SCDynamicStoreCreate(nil, "Vitals" as CFString, nil, nil)
+    private let store = SCDynamicStoreCreate(nil, "Chrono" as CFString, nil, nil)
     private var route: (interface: String?, address: String?, at: Double) = (nil, nil, -.infinity)
 
     func sample() -> NetworkSample {

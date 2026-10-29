@@ -37,8 +37,9 @@ final class StatusBarController {
     }
 
     /// Opens each panel in turn and reports what's on screen (see `--selftest`).
-    func selfTest() -> [String] {
-        Module.allCases.compactMap { items[$0] }.map { $0.selfTest() }
+    func selfTest(captureTo directory: URL?) -> [String] {
+        if let directory { try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
+        return Module.allCases.compactMap { items[$0] }.map { $0.selfTest(captureTo: directory) }
     }
 }
 
@@ -65,11 +66,11 @@ private final class ModuleItem: NSObject, NSPopoverDelegate {
         self.store = store
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         super.init()
-        statusItem.autosaveName = "vitals.\(module.rawValue)"
+        statusItem.autosaveName = "chrono.\(module.rawValue)"
         statusItem.button?.target = self
         statusItem.button?.action = #selector(toggle)
         statusItem.button?.imagePosition = .imageOnly
-        statusItem.button?.setAccessibilityLabel("Vitals \(module.title)")
+        statusItem.button?.setAccessibilityLabel("Chrono \(module.title)")
     }
 
     private var renderedSignature: String?
@@ -95,19 +96,32 @@ private final class ModuleItem: NSObject, NSPopoverDelegate {
             if usesProcesses {
                 store.processConsumers += 1
                 store.refresh()
+                // Per-process CPU is a delta between two samples, so take a second one right away
+                // instead of showing "Sampling…" until the next regular tick.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.store.refresh() }
             }
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
     }
 
-    func selfTest() -> String {
+    func selfTest(captureTo directory: URL?) -> String {
         let button = statusItem.button
         let frame = button?.window?.frame ?? .zero
         let image = button?.image?.size ?? .zero
         toggle()
         let shown = popover.isShown
         let panel = popover.contentViewController?.view.fittingSize ?? .zero
+        if let directory {
+            // Let the popover finish layout and animate in, then draw its window's whole view tree.
+            RunLoop.main.run(until: Date().addingTimeInterval(0.8))
+            if let view = popover.contentViewController?.view.window?.contentView?.superview,
+               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+                view.cacheDisplay(in: view.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?
+                    .write(to: directory.appendingPathComponent("live-\(module.rawValue).png"))
+            }
+        }
         toggle()
         return "\(module.title): visible=\(statusItem.isVisible) bar=\(Int(frame.minX)),\(Int(frame.minY)) \(Int(frame.width))x\(Int(frame.height)) "
             + "image=\(Int(image.width))x\(Int(image.height)) popover=\(shown) \(Int(panel.width))x\(Int(panel.height))"

@@ -56,13 +56,17 @@ final class Settings {
         didSet { defaults.set(showLabels, forKey: "showLabels"); onChange?() }
     }
 
+    var accent: Accent {
+        didSet { defaults.set(accent.rawValue, forKey: "accent") }
+    }
+
     var launchAtLogin: Bool {
         get { SMAppService.mainApp.status == .enabled }
         set {
             do {
                 if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
             } catch {
-                NSLog("Vitals: launch at login change failed: \(error)")
+                NSLog("Chrono: launch at login change failed: \(error)")
             }
         }
     }
@@ -79,6 +83,7 @@ final class Settings {
         interval = savedInterval > 0 ? savedInterval : 2
         fahrenheit = defaults.bool(forKey: "fahrenheit")
         showLabels = defaults.object(forKey: "showLabels") as? Bool ?? true
+        accent = defaults.string(forKey: "accent").flatMap(Accent.init(rawValue:)) ?? .racingRed
     }
 
     func isEnabled(_ module: Module) -> Bool { enabled.contains(module) }

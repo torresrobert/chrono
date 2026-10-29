@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 /// Headless modes for checking readings and layouts without clicking through the menu bar:
-///   Vitals --dump            print current readings
-///   Vitals --snapshot DIR    render every panel and the menu bar strip to PNGs
+///   Chrono --dump            print current readings
+///   Chrono --snapshot DIR [--scheme light|dark]   render every panel and the menu bar strip to PNGs
 @MainActor
 enum Diagnostics {
     static func dump() {
@@ -35,7 +35,7 @@ enum Diagnostics {
         print("Top MEM  " + store.topProcesses(by: \.memory).map { "\($0.name) \(Format.bytes($0.memory))" }.joined(separator: ", "))
     }
 
-    static func snapshot(to directory: URL) {
+    static func snapshot(to directory: URL, dark: Bool) {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let store = Store()
         for _ in 0..<12 {
@@ -43,16 +43,25 @@ enum Diagnostics {
             Thread.sleep(forTimeInterval: 0.5)
         }
 
-        for scheme in [ColorScheme.dark, .light] {
-            // Dynamic NSColors resolve against the current drawing appearance, not the SwiftUI environment.
-            NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
-                for module in Module.allCases {
-                    let view = PanelView(module: module, store: store)
-                        .background(scheme == .dark ? Color(white: 0.17) : Color(white: 0.96))
-                        .environment(\.colorScheme, scheme)
-                    write(view, to: directory.appendingPathComponent("panel-\(module.rawValue)-\(scheme == .dark ? "dark" : "light").png"))
-                }
+        // Draw through a real NSHostingView in an offscreen window: ImageRenderer mis-resolves
+        // dynamic colors (a translucent veil over everything), while the AppKit path matches the
+        // live popover and also draws the footer's buttons.
+        let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+        for module in Module.allCases {
+            let host = NSHostingView(rootView: PanelView(module: module, store: store).background(Theme.background))
+            host.frame.size = host.fittingSize
+            let window = NSWindow(contentRect: CGRect(origin: CGPoint(x: -20000, y: 0), size: host.frame.size),
+                                  styleMask: .borderless, backing: .buffered, defer: false)
+            window.appearance = appearance
+            window.contentView = host
+            window.orderFrontRegardless()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.3))
+            if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                host.cacheDisplay(in: host.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?
+                    .write(to: directory.appendingPathComponent("panel-\(module.rawValue)-\(dark ? "dark" : "light").png"))
             }
+            window.orderOut(nil)
         }
 
         for labels in [true, false] {

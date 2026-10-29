@@ -19,9 +19,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         interval = settings.interval
         store.start(interval: interval)
 
-        if CommandLine.arguments.contains("--selftest") {
+        if let i = CommandLine.arguments.firstIndex(of: "--selftest") {
+            // Optional directory: also capture each open panel, as drawn, to PNG.
+            let args = CommandLine.arguments
+            let captureDir = i + 1 < args.count ? URL(fileURLWithPath: args[i + 1]) : nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [self] in
-                for line in statusBar?.selfTest() ?? [] { print(line) }
+                for line in statusBar?.selfTest(captureTo: captureDir) ?? [] { print(line) }
                 exit(0)
             }
         }
@@ -38,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func showSettings() {
         if settingsWindow == nil {
             let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(settings: settings, store: store)))
-            window.title = "Vitals Settings"
+            window.title = "Chrono Settings"
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
             window.center()

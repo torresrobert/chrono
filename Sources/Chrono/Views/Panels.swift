@@ -1,0 +1,375 @@
+import AppKit
+import SwiftUI
+
+/// The popover content for one module.
+struct PanelView: View {
+    let module: Module
+    let store: Store
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            switch module {
+            case .cpu: CPUPanel(store: store)
+            case .gpu: GPUPanel(store: store)
+            case .memory: MemoryPanel(store: store)
+            case .disk: DiskPanel(store: store)
+            case .network: NetworkPanel(store: store)
+            case .sensors: SensorsPanel(store: store)
+            case .battery: BatteryPanel(store: store)
+            }
+            PanelFooter()
+        }
+        .padding(16)
+        .frame(width: 312)
+        .background(alignment: .top) {
+            BrandedGradientBackground(tint: Theme.accent).frame(height: 180)
+        }
+        .tint(Theme.accent)
+    }
+}
+
+private struct PanelFooter: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            Rectangle().fill(Theme.border).frame(height: 1)
+            HStack(spacing: 14) {
+                Button {
+                    let url = URL(fileURLWithPath: "/System/Applications/Utilities/Activity Monitor.app")
+                    NSWorkspace.shared.openApplication(at: url, configuration: .init())
+                } label: {
+                    Label("Activity Monitor", systemImage: "arrow.up.forward.app")
+                }
+                Spacer()
+                Button { AppDelegate.shared?.showSettings() } label: { Image(systemName: "gearshape") }
+                    .help("Settings…")
+                Button { NSApp.terminate(nil) } label: { Image(systemName: "power") }
+                    .help("Quit Chrono")
+            }
+            .buttonStyle(.borderless)
+            .font(.system(size: 12))
+            .foregroundStyle(Theme.textSecondary)
+        }
+    }
+}
+
+// MARK: - CPU
+
+private struct CPUPanel: View {
+    let store: Store
+
+    var body: some View {
+        let cpu = store.cpu
+        PanelHeader(title: "CPU", symbol: Module.cpu.symbol,
+                    detail: SystemInfo.current.chip.replacingOccurrences(of: "Apple ", with: "")) {
+            DialGauge(fraction: cpu.total, label: Format.percent(cpu.total))
+        }
+        HistoryChart(series: [
+            HistorySeries(name: "CPU", values: store.cpuHistory.values, color: Series.primary),
+        ], maxValue: 1)
+        HStack(alignment: .top, spacing: 16) {
+            VStack(spacing: 4) {
+                StatRow(label: "User", value: Format.percent(cpu.user), color: Series.primary)
+                StatRow(label: "System", value: Format.percent(cpu.system), color: Series.secondary)
+                StatRow(label: "Idle", value: Format.percent(1 - cpu.total), color: Series.neutral)
+            }
+            VStack(spacing: 4) {
+                StatRow(label: "Load 1m", value: String(format: "%.2f", cpu.load.0))
+                StatRow(label: "5m", value: String(format: "%.2f", cpu.load.1))
+                StatRow(label: "15m", value: String(format: "%.2f", cpu.load.2))
+            }
+        }
+        PanelSection("Cores") {
+            VStack(spacing: 6) {
+                ForEach(store.clusters) { cluster in
+                    CoreGrid(name: cluster.name, loads: cluster.cores.map { cpu.cores[safe: $0] ?? 0 })
+                }
+            }
+            .appCard(padding: 8)
+        }
+        PanelSection("Top Processes") {
+            ProcessList(processes: store.topProcesses(by: \.cpu)) { Format.percent($0.cpu) }
+        }
+        if let boot = SystemInfo.bootDate {
+            StatRow(label: "Uptime", value: Format.duration(since: boot))
+        }
+    }
+}
+
+private struct CoreGrid: View {
+    let name: String
+    let loads: [Double]
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(name).font(.system(size: 10, weight: .medium))
+                Text("\(loads.count) cores").font(.system(size: 9)).foregroundStyle(Theme.textSecondary)
+            }
+            .frame(width: 70, alignment: .leading)
+            HStack(alignment: .bottom, spacing: 2) {
+                ForEach(Array(loads.enumerated()), id: \.offset) { _, load in
+                    ZStack(alignment: .bottom) {
+                        RoundedRectangle(cornerRadius: 2).fill(Theme.border)
+                        RoundedRectangle(cornerRadius: 2).fill(Theme.load(load))
+                            .frame(height: max(1.5, 22 * load))
+                    }
+                    .frame(height: 22)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - GPU
+
+private struct GPUPanel: View {
+    let store: Store
+
+    var body: some View {
+        let gpu = store.gpu
+        PanelHeader(title: "GPU", symbol: Module.gpu.symbol,
+                    detail: [store.gpuName.replacingOccurrences(of: "Apple ", with: ""), store.gpuCores.map { "\($0) cores" }]
+                        .compactMap { $0 }.joined(separator: " · ")) {
+            DialGauge(fraction: gpu.utilization, label: Format.percent(gpu.utilization))
+        }
+        HistoryChart(series: [HistorySeries(name: "GPU", values: store.gpuHistory.values, color: Series.primary)],
+                     maxValue: 1)
+        VStack(spacing: 4) {
+            StatRow(label: "Device", value: Format.percent(gpu.utilization), color: Series.primary)
+            StatRow(label: "Renderer", value: Format.percent(gpu.renderer))
+            StatRow(label: "Memory in use", value: Format.bytes(gpu.memoryInUse))
+            if let temp = store.sensors.gpu {
+                StatRow(label: "Temperature", value: Format.temperature(temp), valueColor: Theme.temperature(temp))
+            }
+        }
+    }
+}
+
+// MARK: - Memory
+
+private struct MemoryPanel: View {
+    let store: Store
+
+    var body: some View {
+        let mem = store.memory
+        let total = Double(max(mem.total, 1))
+        PanelHeader(title: "Memory", symbol: Module.memory.symbol,
+                    detail: "\(Format.bytes(mem.used)) of \(Format.bytes(mem.total))") {
+            DialGauge(fraction: mem.usedFraction, label: Format.percent(mem.usedFraction),
+                      color: Theme.pressure(mem.pressure))
+        }
+        VStack(alignment: .leading, spacing: 8) {
+            SegmentedBar(segments: [
+                (Double(mem.app) / total, Series.primary),
+                (Double(mem.wired) / total, Series.secondary),
+                (Double(mem.compressed) / total, Series.tertiary),
+                (Double(mem.cached) / total, Series.neutral),
+            ])
+            VStack(spacing: 4) {
+                StatRow(label: "App", value: Format.bytes(mem.app), color: Series.primary)
+                StatRow(label: "Wired", value: Format.bytes(mem.wired), color: Series.secondary)
+                StatRow(label: "Compressed", value: Format.bytes(mem.compressed), color: Series.tertiary)
+                StatRow(label: "Cached files", value: Format.bytes(mem.cached), color: Series.neutral)
+            }
+        }
+        .appCard()
+        VStack(spacing: 4) {
+            StatRow(label: "Pressure", value: mem.pressure.rawValue, valueColor: Theme.pressure(mem.pressure))
+            StatRow(label: "Swap used", value: mem.swapTotal > 0
+                ? "\(Format.bytes(mem.swapUsed)) of \(Format.bytes(mem.swapTotal))" : "None")
+        }
+        HistoryChart(series: [HistorySeries(name: "Used", values: store.memoryHistory.values, color: Series.primary)],
+                     maxValue: 1, height: 44)
+        PanelSection("Top Processes") {
+            ProcessList(processes: store.topProcesses(by: \.memory)) { Format.bytes($0.memory) }
+        }
+    }
+}
+
+extension Theme {
+    static func pressure(_ p: MemoryPressure) -> Color {
+        switch p {
+        case .normal: positive
+        case .warning: warning
+        case .critical: negative
+        }
+    }
+}
+
+// MARK: - Disk
+
+private struct DiskPanel: View {
+    let store: Store
+
+    var body: some View {
+        let disk = store.disk
+        PanelHeader(title: "Disk", symbol: Module.disk.symbol,
+                    detail: disk.boot.map { "\(Format.diskBytes($0.available)) free" }) {
+            if let boot = disk.boot {
+                DialGauge(fraction: boot.usedFraction, label: Format.percent(boot.usedFraction))
+            }
+        }
+        HistoryChart(series: [
+            HistorySeries(name: "Read", values: store.readHistory.values, color: Series.tertiary),
+            HistorySeries(name: "Write", values: store.writeHistory.values, color: Series.secondary),
+        ])
+        VStack(spacing: 4) {
+            StatRow(label: "Read", value: Format.rate(disk.readRate), color: Series.tertiary)
+            StatRow(label: "Write", value: Format.rate(disk.writeRate), color: Series.secondary)
+        }
+        PanelSection("Volumes") {
+            VStack(spacing: 8) {
+                ForEach(disk.volumes) { volume in
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(volume.name).font(.system(size: 12, weight: .medium))
+                            Spacer()
+                            Text("\(Format.diskBytes(volume.available)) free of \(Format.diskBytes(volume.total))")
+                                .font(.system(size: 11)).foregroundStyle(Theme.textSecondary).monospacedDigit()
+                        }
+                        MeterBar(fraction: volume.usedFraction, color: Theme.load(volume.usedFraction))
+                    }
+                }
+            }
+            .appCard()
+        }
+    }
+}
+
+// MARK: - Network
+
+private struct NetworkPanel: View {
+    let store: Store
+
+    var body: some View {
+        let net = store.network
+        PanelHeader(title: "Network", symbol: Module.network.symbol,
+                    value: Format.rate(net.downRate + net.upRate), detail: net.interface.map { "via \($0)" })
+        HistoryChart(series: [
+            HistorySeries(name: "Download", values: store.downloadHistory.values, color: Series.tertiary),
+            HistorySeries(name: "Upload", values: store.uploadHistory.values, color: Series.secondary),
+        ])
+        HStack(alignment: .top, spacing: 16) {
+            VStack(spacing: 4) {
+                StatRow(label: "Down", value: Format.rate(net.downRate), color: Series.tertiary)
+                StatRow(label: "Up", value: Format.rate(net.upRate), color: Series.secondary)
+            }
+            VStack(spacing: 4) {
+                StatRow(label: "Peak", value: Format.rate(store.downloadHistory.peak))
+                StatRow(label: "Peak", value: Format.rate(store.uploadHistory.peak))
+            }
+        }
+        PanelSection("Interface") {
+            VStack(spacing: 4) {
+                StatRow(label: "Primary", value: net.interface ?? "Not connected")
+                if let address = net.address {
+                    HStack(spacing: 6) {
+                        StatRow(label: "Local IP", value: address)
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(address, forType: .string)
+                        } label: { Image(systemName: "doc.on.doc") }
+                            .buttonStyle(.borderless).font(.system(size: 10)).help("Copy IP address")
+                    }
+                }
+                StatRow(label: "Received since boot", value: Format.bytes(net.totalReceived))
+                StatRow(label: "Sent since boot", value: Format.bytes(net.totalSent))
+            }
+            .appCard()
+        }
+    }
+}
+
+// MARK: - Sensors
+
+private struct SensorsPanel: View {
+    let store: Store
+
+    var body: some View {
+        let sensors = store.sensors
+        PanelHeader(title: "Sensors", symbol: Module.sensors.symbol, detail: "CPU temperature") {
+            if let cpu = sensors.cpu {
+                // Dial spans 20–110 °C with the redline at 90 °C (the throttling neighborhood).
+                DialGauge(fraction: (cpu - 20) / 90, label: Format.temperature(cpu), redline: 70.0 / 90,
+                          color: Theme.temperature(cpu))
+            } else {
+                Readout(value: "–")
+            }
+        }
+        if !store.temperatureHistory.values.isEmpty {
+            HistoryChart(series: [HistorySeries(name: "CPU", values: store.temperatureHistory.values, color: Series.heat)],
+                         maxValue: 110, height: 44)
+        }
+        PanelSection("Temperatures") {
+            VStack(spacing: 4) {
+                HStack {
+                    Spacer()
+                    Text("avg").frame(width: 44, alignment: .trailing)
+                    Text("max").frame(width: 44, alignment: .trailing)
+                }
+                .font(.system(size: 10)).foregroundStyle(Theme.textSecondary)
+                ForEach(sensors.groups) { group in
+                    HStack {
+                        Text(group.name).foregroundStyle(Theme.textSecondary)
+                        Spacer()
+                        Text(Format.temperature(group.average)).frame(width: 44, alignment: .trailing)
+                        Text(Format.temperature(group.maximum)).frame(width: 44, alignment: .trailing)
+                            .foregroundStyle(Theme.temperature(group.maximum))
+                    }
+                    .font(.system(size: 12).monospacedDigit())
+                }
+            }
+            .appCard()
+        }
+        if !sensors.fans.isEmpty {
+            PanelSection("Fans") {
+                VStack(spacing: 8) {
+                    ForEach(sensors.fans) { fan in
+                        VStack(alignment: .leading, spacing: 4) {
+                            StatRow(label: sensors.fans.count > 1 ? "Fan \(fan.index + 1)" : "Fan", value: Format.rpm(fan.rpm))
+                            MeterBar(fraction: fan.fraction, color: Series.tertiary, height: 4)
+                        }
+                    }
+                }
+                .appCard()
+            }
+        }
+        if let power = sensors.systemPower {
+            PanelSection("Power") {
+                StatRow(label: "System total", value: Format.watts(power), color: Series.power)
+                HistoryChart(series: [HistorySeries(name: "Power", values: store.powerHistory.values, color: Series.power)],
+                             height: 36)
+            }
+        }
+    }
+}
+
+// MARK: - Battery
+
+private struct BatteryPanel: View {
+    let store: Store
+
+    var body: some View {
+        if let battery = store.battery {
+            PanelHeader(title: "Battery", symbol: Module.battery.symbol,
+                        detail: battery.isCharging ? "Charging" : battery.isPluggedIn ? "On power adapter" : "On battery") {
+                DialGauge(fraction: battery.level, label: Format.percent(battery.level), redline: 1,
+                          color: battery.level < 0.2 ? Theme.negative : Theme.positive)
+            }
+            VStack(spacing: 4) {
+                StatRow(label: "Power source", value: battery.isPluggedIn ? "Power adapter" : "Battery")
+                StatRow(label: "State", value: battery.isCharging ? "Charging" : battery.isPluggedIn ? "Not charging" : "Discharging")
+                if let minutes = battery.minutesRemaining {
+                    StatRow(label: battery.isCharging ? "Until full" : "Remaining", value: Format.minutes(minutes))
+                }
+                if let health = battery.health {
+                    StatRow(label: "Health", value: health)
+                }
+            }
+            .appCard()
+        } else {
+            PanelHeader(title: "Battery", symbol: Module.battery.symbol, value: "–")
+            Text("This Mac doesn't have a battery.").font(.system(size: 12)).foregroundStyle(Theme.textSecondary)
+        }
+    }
+}

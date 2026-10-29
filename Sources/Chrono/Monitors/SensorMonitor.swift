@@ -98,7 +98,7 @@ final class SensorMonitor {
 
     private static let keysPerGroup = 6
 
-    private static func spread(_ keys: [String], limit: Int) -> [String] {
+    static func spread(_ keys: [String], limit: Int) -> [String] {
         guard keys.count > limit else { return keys }
         let step = Double(keys.count) / Double(limit)
         return (0..<limit).map { keys[Int(Double($0) * step)] }

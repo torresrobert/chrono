@@ -35,7 +35,7 @@ enum Format {
 
     /// Compact rate for the menu bar: always ≤ 7 characters, e.g. "12 KB/s", "1.4 MB/s".
     static func shortRate(_ bytesPerSecond: Double) -> String {
-        let units = ["B", "K", "M", "G", "T"]
+        let units = ["", "K", "M", "G", "T"]
         var v = max(0, bytesPerSecond)
         var i = 0
         while v >= 1000, i < units.count - 1 { v /= 1024; i += 1 }

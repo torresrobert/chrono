@@ -86,7 +86,7 @@ final class Store {
     @ObservationIgnored var onUpdate: (() -> Void)?
 
     @ObservationIgnored private let sampler = Sampler()
-    @ObservationIgnored private let queue = DispatchQueue(label: "vitals.sampler", qos: .utility)
+    @ObservationIgnored private let queue = DispatchQueue(label: "chrono.sampler", qos: .utility)
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var inFlight = false
 
