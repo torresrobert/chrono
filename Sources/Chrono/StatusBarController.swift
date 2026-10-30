@@ -33,7 +33,9 @@ final class StatusBarController {
     }
 
     func render() {
-        for item in items.values { item.render(showLabels: settings.showLabels) }
+        for item in items.values {
+            item.render(showLabels: settings.showLabels, colored: settings.menuBarStyle == .color)
+        }
     }
 
     /// Opens each panel in turn and reports what's on screen (see `--selftest`).
@@ -71,16 +73,30 @@ private final class ModuleItem: NSObject, NSPopoverDelegate {
         statusItem.button?.action = #selector(toggle)
         statusItem.button?.imagePosition = .imageOnly
         statusItem.button?.setAccessibilityLabel("Chrono \(module.title)")
+        // Colored images are drawn for one appearance, so redraw as soon as the menu bar flips
+        // between light and dark (e.g. a wallpaper change) instead of waiting for the next tick.
+        appearanceObservation = statusItem.button?.observe(\.effectiveAppearance) { [weak self] _, _ in
+            Task { @MainActor in self?.rerender() }
+        }
     }
 
     private var renderedSignature: String?
+    private var appearanceObservation: NSKeyValueObservation?
+    private var lastOptions = (showLabels: true, colored: true)
 
-    func render(showLabels: Bool) {
+    func render(showLabels: Bool, colored: Bool) {
+        lastOptions = (showLabels, colored)
+        let dark = statusItem.button?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let ink = colored ? MenuBarInk(colored: true, dark: dark) : .template
         // Rendering goes through SwiftUI and the menu bar server, so skip it when nothing visible changed.
-        let signature = MenuBarLabel(module: module, store: store, showLabels: showLabels).signature
+        let signature = MenuBarLabel(module: module, store: store, showLabels: showLabels, ink: ink).signature
         guard signature != renderedSignature else { return }
         renderedSignature = signature
-        statusItem.button?.image = MenuBarRenderer.image(for: module, store: store, showLabels: showLabels)
+        statusItem.button?.image = MenuBarRenderer.image(for: module, store: store, showLabels: showLabels, ink: ink)
+    }
+
+    private func rerender() {
+        render(showLabels: lastOptions.showLabels, colored: lastOptions.colored)
     }
 
     func remove() {

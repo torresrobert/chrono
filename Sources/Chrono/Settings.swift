@@ -34,6 +34,19 @@ enum Module: String, CaseIterable, Identifiable {
     static let defaults: Set<Module> = [.cpu, .memory, .network, .sensors]
 }
 
+enum MenuBarStyle: String, CaseIterable, Identifiable {
+    case color, monochrome
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .color: "Color"
+        case .monochrome: "Monochrome"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class Settings {
@@ -54,6 +67,10 @@ final class Settings {
 
     var showLabels: Bool {
         didSet { defaults.set(showLabels, forKey: "showLabels"); onChange?() }
+    }
+
+    var menuBarStyle: MenuBarStyle {
+        didSet { defaults.set(menuBarStyle.rawValue, forKey: "menuBarStyle"); onChange?() }
     }
 
     var accent: Accent {
@@ -83,6 +100,7 @@ final class Settings {
         interval = savedInterval > 0 ? savedInterval : 2
         fahrenheit = defaults.bool(forKey: "fahrenheit")
         showLabels = defaults.object(forKey: "showLabels") as? Bool ?? true
+        menuBarStyle = defaults.string(forKey: "menuBarStyle").flatMap(MenuBarStyle.init(rawValue:)) ?? .color
         accent = defaults.string(forKey: "accent").flatMap(Accent.init(rawValue:)) ?? .racingRed
     }
 

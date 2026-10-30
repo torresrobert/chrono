@@ -21,6 +21,9 @@ struct SettingsView: View {
                     }
                     .disabled(module == .battery && store.battery == nil && !settings.isEnabled(.battery))
                 }
+                Picker("Style", selection: $settings.menuBarStyle) {
+                    ForEach(MenuBarStyle.allCases) { Text($0.title).tag($0) }
+                }
                 Toggle("Show captions (CPU, MEM…)", isOn: $settings.showLabels)
             }
             SwiftUI.Section("General") {

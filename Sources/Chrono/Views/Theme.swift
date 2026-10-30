@@ -24,6 +24,19 @@ extension Color {
     }
 }
 
+extension Color {
+    /// The static color this resolves to in a light or dark appearance. Offscreen rendering
+    /// (ImageRenderer) doesn't resolve appearance-dependent colors reliably, so resolve them first.
+    func resolved(dark: Bool) -> Color {
+        let ns = NSColor(self)
+        var out = ns
+        NSAppearance(named: dark ? .darkAqua : .aqua)?.performAsCurrentDrawingAppearance {
+            out = ns.usingColorSpace(.sRGB) ?? ns
+        }
+        return Color(nsColor: out)
+    }
+}
+
 enum Accent: String, CaseIterable, Identifiable {
     case racingRed, forecastlyBlue, fescueGreen, techsheetTeal, graphite
 

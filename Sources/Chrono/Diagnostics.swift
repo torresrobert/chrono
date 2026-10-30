@@ -65,17 +65,25 @@ enum Diagnostics {
         }
 
         for labels in [true, false] {
-            let strip = HStack(spacing: 10) {
-                ForEach(Module.allCases) { module in
-                    if let image = MenuBarRenderer.image(for: module, store: store, showLabels: labels) {
-                        Image(nsImage: image).renderingMode(.template).foregroundStyle(.white)
+            for (name, ink, background) in [("", MenuBarInk(colored: true, dark: true), Color(white: 0.16)),
+                                            ("-light", MenuBarInk(colored: true, dark: false), Color(white: 0.93)),
+                                            ("-mono", MenuBarInk.template, Color(white: 0.16))] {
+                let strip = HStack(spacing: 10) {
+                    ForEach(Module.allCases) { module in
+                        if let image = MenuBarRenderer.image(for: module, store: store, showLabels: labels, ink: ink) {
+                            if ink.colored {
+                                Image(nsImage: image)
+                            } else {
+                                Image(nsImage: image).renderingMode(.template).foregroundStyle(.white)
+                            }
+                        }
                     }
                 }
+                .padding(.horizontal, 10)
+                .frame(height: 24)
+                .background(background)
+                write(strip, to: directory.appendingPathComponent("menubar\(name)\(labels ? "" : "-nolabels").png"))
             }
-            .padding(.horizontal, 10)
-            .frame(height: 24)
-            .background(Color(white: 0.16))
-            write(strip, to: directory.appendingPathComponent("menubar\(labels ? "" : "-nolabels").png"))
         }
         print("Wrote snapshots to \(directory.path)")
     }
