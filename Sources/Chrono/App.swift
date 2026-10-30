@@ -5,7 +5,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static private(set) weak var shared: AppDelegate?
 
-    private let store = Store()
+    private let store = Store(archive: HistoryArchive(saves: true))
     private let settings = Settings.shared
     private var statusBar: StatusBarController?
     private var settingsWindow: NSWindow?
@@ -18,6 +18,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settings.onChange = { [weak self] in self?.settingsChanged() }
         interval = settings.interval
         store.start(interval: interval)
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.willSleepNotification, object: nil,
+                                                          queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.store.archive.save() }
+        }
 
         if let i = CommandLine.arguments.firstIndex(of: "--selftest") {
             // Optional directory: also capture each open panel, as drawn, to PNG.
@@ -28,6 +32,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 exit(0)
             }
         }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        store.archive.save(synchronously: true)
     }
 
     private func settingsChanged() {

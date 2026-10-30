@@ -72,6 +72,11 @@ final class Store {
     private(set) var temperatureHistory = History()
     private(set) var powerHistory = History()
 
+    /// Long-term history behind the 1H–30D chart ranges.
+    @ObservationIgnored let archive: HistoryArchive
+    /// Chart range, shared by every panel so switching panels keeps the same time window.
+    var chartRange: HistoryRange = .live
+
     @ObservationIgnored let clusters: [CoreCluster]
     @ObservationIgnored let gpuName: String
     @ObservationIgnored let gpuCores: Int?
@@ -89,8 +94,10 @@ final class Store {
     @ObservationIgnored private let queue = DispatchQueue(label: "chrono.sampler", qos: .utility)
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var inFlight = false
+    @ObservationIgnored private var ticks = 0
 
-    init() {
+    init(archive: HistoryArchive? = nil) {
+        self.archive = archive ?? HistoryArchive()
         clusters = sampler.cpu.clusters
         gpuName = sampler.gpu.name
         gpuCores = sampler.gpu.coreCount
@@ -112,7 +119,10 @@ final class Store {
         guard !inFlight else { return }
         inFlight = true
         let wantsProcesses = processConsumers > 0
-        let active = activeModules
+        // Sensors are skipped while nobody shows them, but read them every 30 seconds or so
+        // regardless so temperature and power history has no holes.
+        ticks += 1
+        let active = ticks % 15 == 1 ? activeModules.union([.sensors]) : activeModules
         let sampler = sampler
         queue.async {
             let snapshot = sampler.sample(active: active, processes: wantsProcesses)
@@ -149,7 +159,31 @@ final class Store {
         writeHistory.append(disk.writeRate)
         if let t = sensors.cpu { temperatureHistory.append(t) }
         if let p = sensors.systemPower { powerHistory.append(p) }
+
+        var values: [Metric: Double] = [
+            .cpu: cpu.total, .memory: memory.usedFraction, .gpu: gpu.utilization,
+            .upload: network.upRate, .download: network.downRate, .read: disk.readRate, .write: disk.writeRate,
+        ]
+        if let fresh = s.sensors {
+            values[.temperature] = fresh.cpu
+            values[.power] = fresh.systemPower
+        }
+        archive.record(values)
         onUpdate?()
+    }
+
+    func liveHistory(_ metric: Metric) -> History {
+        switch metric {
+        case .cpu: cpuHistory
+        case .memory: memoryHistory
+        case .gpu: gpuHistory
+        case .upload: uploadHistory
+        case .download: downloadHistory
+        case .read: readHistory
+        case .write: writeHistory
+        case .temperature: temperatureHistory
+        case .power: powerHistory
+        }
     }
 
     func topProcesses(by key: KeyPath<ProcessUsage, some Comparable>, limit: Int = 5) -> [ProcessUsage] {

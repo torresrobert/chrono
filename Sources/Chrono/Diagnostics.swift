@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Headless modes for checking readings and layouts without clicking through the menu bar:
 ///   Chrono --dump            print current readings
-///   Chrono --snapshot DIR [--scheme light|dark]   render every panel and the menu bar strip to PNGs
+///   Chrono --snapshot DIR [--scheme light|dark] [--range live|hour|day|week|month] [--history FILE]
+///                            render every panel and the menu bar strip to PNGs
 @MainActor
 enum Diagnostics {
     static func dump() {
@@ -35,9 +36,10 @@ enum Diagnostics {
         print("Top MEM  " + store.topProcesses(by: \.memory).map { "\($0.name) \(Format.bytes($0.memory))" }.joined(separator: ", "))
     }
 
-    static func snapshot(to directory: URL, dark: Bool) {
+    static func snapshot(to directory: URL, dark: Bool, range: HistoryRange = .live, history: URL? = nil) {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let store = Store()
+        let store = Store(archive: HistoryArchive(file: history ?? HistoryArchive.defaultFile))
+        store.chartRange = range
         for _ in 0..<12 {
             store.refreshNow()
             Thread.sleep(forTimeInterval: 0.5)

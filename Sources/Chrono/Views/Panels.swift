@@ -63,9 +63,8 @@ private struct CPUPanel: View {
                     detail: SystemInfo.current.chip.replacingOccurrences(of: "Apple ", with: "")) {
             DialGauge(fraction: cpu.total, label: Format.percent(cpu.total))
         }
-        HistoryChart(series: [
-            HistorySeries(name: "CPU", values: store.cpuHistory.values, color: Series.primary),
-        ], maxValue: 1)
+        MetricChart(store: store, series: [MetricSeries(metric: .cpu, name: "CPU", color: Series.primary)],
+                    maxValue: 1, format: Format.percent)
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 4) {
                 StatRow(label: "User", value: Format.percent(cpu.user), color: Series.primary)
@@ -132,8 +131,8 @@ private struct GPUPanel: View {
                         .compactMap { $0 }.joined(separator: " · ")) {
             DialGauge(fraction: gpu.utilization, label: Format.percent(gpu.utilization))
         }
-        HistoryChart(series: [HistorySeries(name: "GPU", values: store.gpuHistory.values, color: Series.primary)],
-                     maxValue: 1)
+        MetricChart(store: store, series: [MetricSeries(metric: .gpu, name: "GPU", color: Series.primary)],
+                    maxValue: 1, format: Format.percent)
         VStack(spacing: 4) {
             StatRow(label: "Device", value: Format.percent(gpu.utilization), color: Series.primary)
             StatRow(label: "Renderer", value: Format.percent(gpu.renderer))
@@ -178,8 +177,8 @@ private struct MemoryPanel: View {
             StatRow(label: "Swap used", value: mem.swapTotal > 0
                 ? "\(Format.bytes(mem.swapUsed)) of \(Format.bytes(mem.swapTotal))" : "None")
         }
-        HistoryChart(series: [HistorySeries(name: "Used", values: store.memoryHistory.values, color: Series.primary)],
-                     maxValue: 1, height: 44)
+        MetricChart(store: store, series: [MetricSeries(metric: .memory, name: "Used", color: Series.primary)],
+                    maxValue: 1, height: 44, format: Format.percent)
         PanelSection("Top Processes") {
             ProcessList(processes: store.topProcesses(by: \.memory)) { Format.bytes($0.memory) }
         }
@@ -209,10 +208,10 @@ private struct DiskPanel: View {
                 DialGauge(fraction: boot.usedFraction, label: Format.percent(boot.usedFraction))
             }
         }
-        HistoryChart(series: [
-            HistorySeries(name: "Read", values: store.readHistory.values, color: Series.tertiary),
-            HistorySeries(name: "Write", values: store.writeHistory.values, color: Series.secondary),
-        ])
+        MetricChart(store: store, series: [
+            MetricSeries(metric: .read, name: "Read", color: Series.tertiary),
+            MetricSeries(metric: .write, name: "Write", color: Series.secondary),
+        ], format: Format.rate)
         VStack(spacing: 4) {
             StatRow(label: "Read", value: Format.rate(disk.readRate), color: Series.tertiary)
             StatRow(label: "Write", value: Format.rate(disk.writeRate), color: Series.secondary)
@@ -245,10 +244,10 @@ private struct NetworkPanel: View {
         let net = store.network
         PanelHeader(title: "Network", symbol: Module.network.symbol,
                     value: Format.rate(net.downRate + net.upRate), detail: net.interface.map { "via \($0)" })
-        HistoryChart(series: [
-            HistorySeries(name: "Download", values: store.downloadHistory.values, color: Series.tertiary),
-            HistorySeries(name: "Upload", values: store.uploadHistory.values, color: Series.secondary),
-        ])
+        MetricChart(store: store, series: [
+            MetricSeries(metric: .download, name: "Down", color: Series.tertiary),
+            MetricSeries(metric: .upload, name: "Up", color: Series.secondary),
+        ], format: Format.rate)
         HStack(alignment: .top, spacing: 16) {
             VStack(spacing: 4) {
                 StatRow(label: "Down", value: Format.rate(net.downRate), color: Series.tertiary)
@@ -296,9 +295,9 @@ private struct SensorsPanel: View {
                 Readout(value: "–")
             }
         }
-        if !store.temperatureHistory.values.isEmpty {
-            HistoryChart(series: [HistorySeries(name: "CPU", values: store.temperatureHistory.values, color: Series.heat)],
-                         maxValue: 110, height: 44)
+        if sensors.cpu != nil {
+            MetricChart(store: store, series: [MetricSeries(metric: .temperature, name: "CPU", color: Series.heat)],
+                        maxValue: 110, height: 44, format: { Format.temperature($0) })
         }
         PanelSection("Temperatures") {
             VStack(spacing: 4) {
@@ -337,8 +336,8 @@ private struct SensorsPanel: View {
         if let power = sensors.systemPower {
             PanelSection("Power") {
                 StatRow(label: "System total", value: Format.watts(power), color: Series.power)
-                HistoryChart(series: [HistorySeries(name: "Power", values: store.powerHistory.values, color: Series.power)],
-                             height: 36)
+                MetricChart(store: store, series: [MetricSeries(metric: .power, name: "Power", color: Series.power)],
+                            height: 36, picker: sensors.cpu == nil, format: Format.watts)
             }
         }
     }

@@ -33,6 +33,13 @@ Each module is its own menu bar item; click one for the full panel.
 | **Sensors** | CPU temperature | CPU, GPU, memory, SSD and airflow temperatures, fan speeds, total system power |
 | **Battery** | charge | state, time remaining, health (hidden on desktops) |
 
+Every chart has a **history** range: Live (the last few minutes), 1 hour, 24 hours, 7 days or
+30 days. History keeps each minute's average and peak, so a short spike overnight still shows up
+in the 30-day view. Gaps mean the Mac was asleep or Chrono wasn't running.
+
+Menu bar items are in color by default, with values turning amber or red when they need
+attention. Choose Monochrome in Settings for the classic template look.
+
 CPU, Memory, Network and Sensors are on by default. Settings (the gear in any panel) toggles
 modules, captions, the update interval, °C/°F, the accent color and launch at login.
 ⌘-drag menu bar items to reorder them.
@@ -43,6 +50,10 @@ Chrono reads everything from local system interfaces and **makes no network conn
 no analytics, no crash reporting, no update pings. There is no privileged helper and it never
 asks for an admin password. The code is small enough to check that claim yourself:
 `grep -rn "URLSession\|NWConnection" Sources` comes back empty.
+
+History is stored only on your Mac, in `~/Library/Application Support/me.torresrobert.chrono/history.plist`
+(well under 1 MB for 30 days). It holds system-wide numbers only, no process names. Delete
+the file to clear it.
 
 ## Install
 
@@ -70,6 +81,7 @@ Everything is read in-process, without spawning `ps`, `top` or other tools:
 | GPU | IOKit `IOAccelerator` → `PerformanceStatistics` |
 | Disk | IOKit `IOBlockStorageDriver` statistics; capacity as Finder reports it |
 | Network | 64-bit interface counters from `NET_RT_IFLIST2` |
+| History | 1-minute buckets kept for a day, rolled into 15-minute buckets kept for 30 days ([`HistoryArchive.swift`](Sources/Chrono/HistoryArchive.swift)) |
 | Sensors | AppleSMC ([`smc.c`](Sources/CSensors/smc.c)) for temperatures, fans and power; HID sensors ([`hid.c`](Sources/CSensors/hid.c)) as a fallback |
 
 SMC key layouts differ from chip to chip, so Chrono discovers sensors at launch by key prefix
@@ -91,6 +103,7 @@ Chrono uses about 1–2% of one core at the default 2-second interval.
 swift build && swift test
 swift run Chrono --dump                              # print every reading once
 swift run Chrono --snapshot out/ --scheme dark       # render each panel and the menu bar to PNG
+swift run Chrono --snapshot out/ --range day         # …with the charts on a history range
 swift run Chrono --selftest out/                     # launch for real, open and capture each panel, quit
 swift scripts/make-icon.swift                        # regenerate Resources/AppIcon.icns
 ```
