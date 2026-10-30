@@ -66,6 +66,8 @@ enum Accent: String, CaseIterable, Identifiable {
 
     /// The deep variant in every appearance, for things drawn as hardware (the dial's ring).
     var deep: Color { Color(hex: hex.light) }
+    /// The dark-appearance color as hex, for the terminal view.
+    var darkHex: UInt { hex.dark }
 }
 
 enum Theme {

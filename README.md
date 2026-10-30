@@ -44,6 +44,21 @@ CPU, Memory, Network and Sensors are on by default. Settings (the gear in any pa
 modules, captions, the update interval, °C/°F, the accent color and launch at login.
 ⌘-drag menu bar items to reorder them.
 
+### In the terminal
+
+The same readings and history are available as `chrono`, a live terminal view: handy over SSH,
+where there's no menu bar. Link it onto your PATH once:
+
+```sh
+ln -s /Applications/Chrono.app/Contents/MacOS/Chrono /usr/local/bin/chrono   # or ~/.local/bin
+```
+
+`chrono` shows every module, a history chart (Tab switches the metric, 1–5 the range) and the
+busiest processes. It's the same binary as the app, so it uses your Chrono settings
+(°C/°F, accent, update interval), and it reads the history the app records without writing
+to it. Piped into another command it prints the current readings once. `chrono --help` lists
+the keys.
+
 ## Privacy
 
 Chrono reads everything from local system interfaces and **makes no network connections** —
@@ -102,6 +117,7 @@ Chrono uses about 1–2% of one core at the default 2-second interval.
 ```sh
 swift build && swift test
 swift run Chrono --dump                              # print every reading once
+swift run Chrono --terminal                          # the `chrono` terminal view
 swift run Chrono --snapshot out/ --scheme dark       # render each panel and the menu bar to PNG
 swift run Chrono --snapshot out/ --range day         # …with the charts on a history range
 swift run Chrono --selftest out/                     # launch for real, open and capture each panel, quit

@@ -64,7 +64,16 @@ enum MenuBarStyle: String, CaseIterable, Identifiable {
 @Observable
 final class Settings {
     static let shared = Settings()
-    private let defaults = UserDefaults.standard
+    private let defaults = Settings.appDefaults
+
+    /// Run as `chrono` through a symlink, macOS doesn't see the app bundle around the binary,
+    /// so the app's preferences have to be named to share them with the terminal view.
+    private static let appDefaults: UserDefaults = {
+        guard Bundle.main.bundleIdentifier == nil, let executable = Bundle.main.executablePath,
+              URL(fileURLWithPath: executable).resolvingSymlinksInPath().path.hasSuffix(".app/Contents/MacOS/Chrono")
+        else { return .standard }
+        return UserDefaults(suiteName: "me.torresrobert.chrono") ?? .standard
+    }()
 
     var enabled: Set<Module> {
         didSet { defaults.set(enabled.map(\.rawValue), forKey: "enabledModules"); onChange?() }

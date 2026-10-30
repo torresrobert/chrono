@@ -1,8 +1,12 @@
 import AppKit
 
 let arguments = CommandLine.arguments
+// The command-line link (`chrono`, lowercase) opens the terminal view instead of the menu bar app.
+let wantsTerminal = URL(fileURLWithPath: arguments[0]).lastPathComponent == "chrono" || arguments.contains("--terminal")
 
-if arguments.contains("--dump") {
+if wantsTerminal {
+    MainActor.assumeIsolated { TerminalApp.run(arguments: Array(arguments.dropFirst())) }
+} else if arguments.contains("--dump") {
     MainActor.assumeIsolated { Diagnostics.dump() }
 } else if let i = arguments.firstIndex(of: "--snapshot"), i + 1 < arguments.count {
     // Offscreen rendering only resolves one appearance correctly per process, so pick one.
