@@ -34,7 +34,8 @@ final class StatusBarController {
 
     func render() {
         for item in items.values {
-            item.render(showLabels: settings.showLabels, colored: settings.menuBarStyle == .color)
+            item.render(showLabels: settings.showLabels, colored: settings.menuBarStyle == .color,
+                        cpuCores: settings.cpuMenuBar == .cores)
         }
     }
 
@@ -82,21 +83,22 @@ private final class ModuleItem: NSObject, NSPopoverDelegate {
 
     private var renderedSignature: String?
     private var appearanceObservation: NSKeyValueObservation?
-    private var lastOptions = (showLabels: true, colored: true)
+    private var lastOptions = (showLabels: true, colored: true, cpuCores: false)
 
-    func render(showLabels: Bool, colored: Bool) {
-        lastOptions = (showLabels, colored)
+    func render(showLabels: Bool, colored: Bool, cpuCores: Bool) {
+        lastOptions = (showLabels, colored, cpuCores)
         let dark = statusItem.button?.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
         let ink = colored ? MenuBarInk(colored: true, dark: dark) : .template
         // Rendering goes through SwiftUI and the menu bar server, so skip it when nothing visible changed.
-        let signature = MenuBarLabel(module: module, store: store, showLabels: showLabels, ink: ink).signature
+        let signature = MenuBarLabel(module: module, store: store, showLabels: showLabels, ink: ink, cpuCores: cpuCores).signature
         guard signature != renderedSignature else { return }
         renderedSignature = signature
-        statusItem.button?.image = MenuBarRenderer.image(for: module, store: store, showLabels: showLabels, ink: ink)
+        statusItem.button?.image = MenuBarRenderer.image(for: module, store: store, showLabels: showLabels, ink: ink,
+                                                         cpuCores: cpuCores)
     }
 
     private func rerender() {
-        render(showLabels: lastOptions.showLabels, colored: lastOptions.colored)
+        render(showLabels: lastOptions.showLabels, colored: lastOptions.colored, cpuCores: lastOptions.cpuCores)
     }
 
     func remove() {

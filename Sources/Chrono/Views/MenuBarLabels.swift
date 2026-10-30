@@ -60,12 +60,21 @@ struct MenuBarLabel: View {
     let store: Store
     let showLabels: Bool
     var ink: MenuBarInk = .template
+    var cpuCores = false
+
+    private var clusterLoads: [[Double]] {
+        store.clusters.map { cluster in cluster.cores.map { store.cpu.cores[safe: $0] ?? 0 } }
+    }
 
     var body: some View {
         HStack(spacing: 3) {
             switch module {
             case .cpu:
-                MiniGraph(values: store.cpuHistory.values.suffix(18), color: ink.data(Series.primary), frame: ink.text)
+                if cpuCores {
+                    CoreBars(clusters: clusterLoads, ink: ink)
+                } else {
+                    MiniGraph(values: store.cpuHistory.values.suffix(18), color: ink.data(Series.primary), frame: ink.text)
+                }
                 value(caption: "CPU", Format.percent(store.cpu.total), width: 30,
                       color: ink.alert(StatusLevel(load: store.cpu.total)))
             case .gpu:
@@ -112,7 +121,10 @@ struct MenuBarLabel: View {
         let graph = { (h: History) in h.values.suffix(18).map { String(Int(min(1, $0) * 30)) }.joined(separator: ",") }
         let body: String
         switch module {
-        case .cpu: body = Format.percent(store.cpu.total) + graph(store.cpuHistory)
+        case .cpu:
+            body = Format.percent(store.cpu.total) + (cpuCores
+                ? clusterLoads.map { $0.map { String(Int(min(1, $0) * 30)) }.joined(separator: ",") }.joined(separator: "|")
+                : graph(store.cpuHistory))
         case .gpu: body = Format.percent(store.gpu.utilization) + graph(store.gpuHistory)
         case .memory: body = String(format: "%.3f", store.memory.usedFraction) + store.memory.pressure.rawValue
         case .disk: body = Format.shortRate(store.disk.readRate) + Format.shortRate(store.disk.writeRate)
@@ -120,7 +132,7 @@ struct MenuBarLabel: View {
         case .sensors: body = store.sensors.cpu.map { Format.temperature($0) + "\(StatusLevel(celsius: $0))" } ?? "-"
         case .battery: body = store.battery.map { Format.percent($0.level) + "\($0.isCharging)" } ?? "-"
         }
-        return "\(showLabels)|\(ink.colored)|\(ink.dark)|\(NSScreen.main?.backingScaleFactor ?? 2)|" + body
+        return "\(showLabels)|\(cpuCores)|\(ink.colored)|\(ink.dark)|\(NSScreen.main?.backingScaleFactor ?? 2)|" + body
     }
 
     @ViewBuilder
@@ -130,10 +142,10 @@ struct MenuBarLabel: View {
                 Text(caption).font(.system(size: 7.5, weight: .bold)).foregroundStyle(ink.text.opacity(0.75))
                 Text(text).font(.system(size: 11, weight: .semibold).monospacedDigit()).foregroundStyle(color)
             }
-            .frame(width: width, alignment: .leading)
+            .fixedSize().frame(minWidth: width, alignment: .leading)
         } else {
             Text(text).font(.system(size: 12, weight: .medium).monospacedDigit()).foregroundStyle(color)
-                .frame(width: width + 2, alignment: .trailing)
+                .fixedSize().frame(minWidth: width + 2, alignment: .trailing)
         }
     }
 }
@@ -154,6 +166,30 @@ private struct MiniGraph: View {
         .frame(width: CGFloat(count) * 1.5, height: 15, alignment: .bottom)
         .padding(1)
         .overlay(RoundedRectangle(cornerRadius: 2).stroke(frame.opacity(0.35), lineWidth: 0.75))
+    }
+}
+
+/// One bar per core, grouped by cluster. Clusters are told apart by color, or by weight when monochrome.
+private struct CoreBars: View {
+    let clusters: [[Double]]
+    let ink: MenuBarInk
+
+    var body: some View {
+        let count = clusters.reduce(0) { $0 + $1.count }
+        let width: CGFloat = count > 20 ? 1 : 1.5
+        HStack(alignment: .bottom, spacing: 2.5) {
+            ForEach(Array(clusters.enumerated()), id: \.offset) { index, loads in
+                let color = ink.colored ? ink.data(Series.cluster(index)) : .black.opacity(index % 2 == 0 ? 0.6 : 1)
+                HStack(alignment: .bottom, spacing: 0.5) {
+                    ForEach(Array(loads.enumerated()), id: \.offset) { _, load in
+                        Rectangle().fill(color).frame(width: width, height: max(0.5, 15 * min(1, load)))
+                    }
+                }
+            }
+        }
+        .frame(height: 15, alignment: .bottom)
+        .padding(1)
+        .overlay(RoundedRectangle(cornerRadius: 2).stroke(ink.text.opacity(0.35), lineWidth: 0.75))
     }
 }
 
@@ -196,8 +232,10 @@ private struct StackedRates: View {
 
 @MainActor
 enum MenuBarRenderer {
-    static func image(for module: Module, store: Store, showLabels: Bool, ink: MenuBarInk = .template) -> NSImage? {
-        let renderer = ImageRenderer(content: MenuBarLabel(module: module, store: store, showLabels: showLabels, ink: ink))
+    static func image(for module: Module, store: Store, showLabels: Bool, ink: MenuBarInk = .template,
+                      cpuCores: Bool = false) -> NSImage? {
+        let renderer = ImageRenderer(content: MenuBarLabel(module: module, store: store, showLabels: showLabels, ink: ink,
+                                                           cpuCores: cpuCores))
         renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
         guard let image = renderer.nsImage else { return nil }
         image.isTemplate = !ink.colored

@@ -72,7 +72,8 @@ enum Diagnostics {
                                             ("-mono", MenuBarInk.template, Color(white: 0.16))] {
                 let strip = HStack(spacing: 10) {
                     ForEach(Module.allCases) { module in
-                        if let image = MenuBarRenderer.image(for: module, store: store, showLabels: labels, ink: ink) {
+                        if let image = MenuBarRenderer.image(for: module, store: store, showLabels: labels, ink: ink,
+                                                             cpuCores: Settings.shared.cpuMenuBar == .cores) {
                             if ink.colored {
                                 Image(nsImage: image)
                             } else {

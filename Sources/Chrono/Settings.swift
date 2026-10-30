@@ -34,6 +34,19 @@ enum Module: String, CaseIterable, Identifiable {
     static let defaults: Set<Module> = [.cpu, .memory, .network, .sensors]
 }
 
+enum CPUMenuBarDisplay: String, CaseIterable, Identifiable {
+    case graph, cores
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .graph: "History graph"
+        case .cores: "Each core"
+        }
+    }
+}
+
 enum MenuBarStyle: String, CaseIterable, Identifiable {
     case color, monochrome
 
@@ -73,6 +86,10 @@ final class Settings {
         didSet { defaults.set(menuBarStyle.rawValue, forKey: "menuBarStyle"); onChange?() }
     }
 
+    var cpuMenuBar: CPUMenuBarDisplay {
+        didSet { defaults.set(cpuMenuBar.rawValue, forKey: "cpuMenuBar"); onChange?() }
+    }
+
     var accent: Accent {
         didSet { defaults.set(accent.rawValue, forKey: "accent") }
     }
@@ -101,6 +118,7 @@ final class Settings {
         fahrenheit = defaults.bool(forKey: "fahrenheit")
         showLabels = defaults.object(forKey: "showLabels") as? Bool ?? true
         menuBarStyle = defaults.string(forKey: "menuBarStyle").flatMap(MenuBarStyle.init(rawValue:)) ?? .color
+        cpuMenuBar = defaults.string(forKey: "cpuMenuBar").flatMap(CPUMenuBarDisplay.init(rawValue:)) ?? .graph
         accent = defaults.string(forKey: "accent").flatMap(Accent.init(rawValue:)) ?? .racingRed
     }
 

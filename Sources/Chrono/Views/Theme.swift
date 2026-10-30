@@ -105,6 +105,11 @@ enum Series {
     static let neutral = Color(light: 0x9CA3AF, dark: 0x4B5563)
     static let heat = Color(light: 0xEA580C, dark: 0xFB923C)
     static let power = Color(light: 0xCA8A04, dark: 0xFACC15)
+
+    /// Identifies a core cluster in the per-core menu bar bars, in `Store.clusters` order.
+    static func cluster(_ index: Int) -> Color {
+        [primary, secondary, tertiary][index % 3]
+    }
 }
 
 /// torres-style BrandedGradientBackground: the accent at low opacity, fading out downward.

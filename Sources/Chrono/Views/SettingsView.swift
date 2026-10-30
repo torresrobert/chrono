@@ -24,6 +24,10 @@ struct SettingsView: View {
                 Picker("Style", selection: $settings.menuBarStyle) {
                     ForEach(MenuBarStyle.allCases) { Text($0.title).tag($0) }
                 }
+                Picker("CPU shows", selection: $settings.cpuMenuBar) {
+                    ForEach(CPUMenuBarDisplay.allCases) { Text($0.title).tag($0) }
+                }
+                .disabled(!settings.isEnabled(.cpu))
                 Toggle("Show captions (CPU, MEM…)", isOn: $settings.showLabels)
             }
             SwiftUI.Section("General") {

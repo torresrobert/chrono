@@ -79,8 +79,12 @@ private struct CPUPanel: View {
         }
         PanelSection("Cores") {
             VStack(spacing: 6) {
-                ForEach(store.clusters) { cluster in
-                    CoreGrid(name: cluster.name, loads: cluster.cores.map { cpu.cores[safe: $0] ?? 0 })
+                ForEach(Array(store.clusters.enumerated()), id: \.element.id) { index, cluster in
+                    CoreGrid(name: cluster.name, firstCore: cluster.cores.lowerBound,
+                             loads: cluster.cores.map { cpu.cores[safe: $0] ?? 0 },
+                             // Key for the menu bar's per-core bars, which tell clusters apart by color.
+                             swatch: Settings.shared.cpuMenuBar == .cores && Settings.shared.menuBarStyle == .color
+                                && store.clusters.count > 1 ? Series.cluster(index) : nil)
                 }
             }
             .appCard(padding: 8)
@@ -96,26 +100,44 @@ private struct CPUPanel: View {
 
 private struct CoreGrid: View {
     let name: String
+    let firstCore: Int
     let loads: [Double]
+    var swatch: Color?
+
+    /// The cluster's share of its own capacity (every logical core weighs the same).
+    private var average: Double { loads.isEmpty ? 0 : loads.reduce(0, +) / Double(loads.count) }
 
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             VStack(alignment: .leading, spacing: 0) {
-                Text(name).font(.system(size: 10, weight: .medium))
-                Text("\(loads.count) cores").font(.system(size: 9)).foregroundStyle(Theme.textSecondary)
+                HStack(spacing: 4) {
+                    if let swatch { Circle().fill(swatch).frame(width: 6, height: 6) }
+                    Text(name).font(.system(size: 10, weight: .medium)).lineLimit(1)
+                }
+                HStack(spacing: 0) {
+                    Text("\(loads.count) cores · ").foregroundStyle(Theme.textSecondary)
+                    Text(Format.percent(average)).foregroundStyle(Theme.textPrimary).fontWeight(.semibold)
+                }
+                .font(.system(size: 9).monospacedDigit())
             }
-            .frame(width: 70, alignment: .leading)
+            .frame(width: 84, alignment: .leading)
             HStack(alignment: .bottom, spacing: 2) {
-                ForEach(Array(loads.enumerated()), id: \.offset) { _, load in
+                ForEach(Array(loads.enumerated()), id: \.offset) { offset, load in
                     ZStack(alignment: .bottom) {
                         RoundedRectangle(cornerRadius: 2).fill(Theme.border)
                         RoundedRectangle(cornerRadius: 2).fill(Theme.load(load))
                             .frame(height: max(1.5, 22 * load))
                     }
                     .frame(height: 22)
+                    .contentShape(Rectangle())
+                    .help("Core \(firstCore + offset) · \(Format.percent(load))")
+                    .accessibilityElement()
+                    .accessibilityLabel("\(name) core \(firstCore + offset), \(Format.percent(load))")
                 }
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(name) cores, \(Format.percent(average)) average")
     }
 }
 
