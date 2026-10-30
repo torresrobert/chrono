@@ -1,6 +1,8 @@
-// Renders Resources/AppIcon.icns: a simplified sports-car center tachometer (aluminum bezel,
-// black face, upright 0–9 numerals, red zone from 7.5, red needle). Small sizes drop the numerals
-// and minor ticks so the dial still reads at 16–32 px. Run from the repo root: swift scripts/make-icon.swift
+// Renders Resources/AppIcon.icns: a simplified track-car center tachometer. A dark outer track
+// with white major and fine yellow minor ticks, a red numeral ring (0–10), a black center with a
+// small activity trace, a redline from 9, and a yellow needle on a silver hub. Small sizes drop
+// the numerals and fine ticks so the dial still reads at 16–32 px.
+// Run from the repo root: swift scripts/make-icon.swift
 import AppKit
 
 func rgb(_ hex: UInt32, _ alpha: CGFloat = 1) -> NSColor {
@@ -9,8 +11,9 @@ func rgb(_ hex: UInt32, _ alpha: CGFloat = 1) -> NSColor {
 }
 
 let red = rgb(0xC8102E)
-let redBright = rgb(0xF0475A)
+let redLit = rgb(0xE3213F)
 let ink = rgb(0xF3F4F6)
+let yellow = rgb(0xE8D21C)
 
 func render(_ px: Int) -> NSBitmapImageRep {
     let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: px, pixelsHigh: px, bitsPerSample: 8,
@@ -28,125 +31,136 @@ func render(_ px: Int) -> NSBitmapImageRep {
     let shape = NSBezierPath(roundedRect: body, xRadius: 186, yRadius: 186)
     ctx.saveGState()
     ctx.setShadow(offset: CGSize(width: 0, height: -10), blur: 24, color: NSColor.black.withAlphaComponent(0.35).cgColor)
-    rgb(0x111318).setFill()
+    rgb(0x0E1014).setFill()
     shape.fill()
     ctx.restoreGState()
     ctx.saveGState()
     shape.addClip()
-    NSGradient(colors: [rgb(0x2A2F3A), rgb(0x111318)])!.draw(in: body, angle: -90)
+    NSGradient(colors: [rgb(0x262A32), rgb(0x0E1014)])!.draw(in: body, angle: -90)
     ctx.restoreGState()
 
     let center = CGPoint(x: 512, y: 512)
-    let face: CGFloat = 340       // face radius
-    let bezel: CGFloat = 30       // aluminum ring width
-
+    let outer: CGFloat = 360      // inside edge of the bezel
+    let ringOuter: CGFloat = 288  // red numeral ring
+    let ringInner: CGFloat = 186
     func circle(_ r: CGFloat) -> CGRect { CGRect(x: center.x - r, y: center.y - r, width: r * 2, height: r * 2) }
+    func disc(_ r: CGFloat) -> NSBezierPath { NSBezierPath(ovalIn: circle(r)) }
 
-    // Bezel: brushed aluminum, lit from above, with a dark seam where it meets the face.
+    // Bezel: dark gunmetal, lit from above.
     ctx.saveGState()
-    ctx.setShadow(offset: CGSize(width: 0, height: -8), blur: 18, color: NSColor.black.withAlphaComponent(0.5).cgColor)
-    rgb(0x9CA3AF).setFill()
-    NSBezierPath(ovalIn: circle(face + bezel)).fill()
+    ctx.setShadow(offset: CGSize(width: 0, height: -8), blur: 20, color: NSColor.black.withAlphaComponent(0.55).cgColor)
+    rgb(0x30343B).setFill()
+    disc(outer + 26).fill()
     ctx.restoreGState()
-    NSGradient(colors: [rgb(0xF3F4F6), rgb(0xA1A7B0), rgb(0x5B616B), rgb(0xB8BEC7)],
-               atLocations: [0, 0.45, 0.8, 1], colorSpace: .sRGB)!
-        .draw(in: NSBezierPath(ovalIn: circle(face + bezel)), angle: -90)
-    rgb(0x05060A).setFill()
-    NSBezierPath(ovalIn: circle(face + 4)).fill()
+    NSGradient(colors: [rgb(0x8A9099), rgb(0x3A3F47), rgb(0x1C1F24), rgb(0x4A4F57)],
+               atLocations: [0, 0.4, 0.75, 1], colorSpace: .sRGB)!.draw(in: disc(outer + 26), angle: -90)
 
-    // Face: near-black with a soft center lift.
-    NSGradient(colors: [rgb(0x1C1F26), rgb(0x0A0B0F)])!
-        .draw(fromCenter: CGPoint(x: center.x, y: center.y + 60), radius: 0, toCenter: center, radius: face, options: [])
+    // Outer track.
+    NSGradient(colors: [rgb(0x1A1D22), rgb(0x0A0B0E)])!.draw(in: disc(outer), angle: -90)
 
-    // Scale 0–9 over a 270° sweep: 0 at lower left, 9 at lower right.
-    let maxValue: CGFloat = 9
-    let redline: CGFloat = 7.5
-    func angle(_ v: CGFloat) -> CGFloat { (225 - 270 * v / maxValue) * .pi / 180 }
+    // Scale 0–10 over a 300° sweep: 0 at about 8 o'clock, 5 at the top, 10 at about 4 o'clock.
+    let maxValue: CGFloat = 10
+    let redline: CGFloat = 9
+    func angle(_ v: CGFloat) -> CGFloat { (240 - 300 * v / maxValue) * .pi / 180 }
     func point(_ v: CGFloat, _ r: CGFloat) -> CGPoint {
         CGPoint(x: center.x + cos(angle(v)) * r, y: center.y + sin(angle(v)) * r)
     }
-
-    // Red zone: a band along the outer edge, under the ticks.
-    ctx.setLineCap(.butt)
-    ctx.setLineWidth(detailed ? 16 : 30)
-    ctx.setStrokeColor(red.cgColor)
-    ctx.addArc(center: center, radius: face - (detailed ? 12 : 18), startAngle: angle(redline), endAngle: angle(maxValue),
-               clockwise: true)
-    ctx.strokePath()
-
-    // Ticks: majors at every 1,000, minors at the half.
-    for i in 0...Int(maxValue * 2) {
-        let v = CGFloat(i) / 2
-        let major = i % 2 == 0
-        if !major && !detailed { continue }
+    func tick(_ v: CGFloat, from r0: CGFloat, to r1: CGFloat, width: CGFloat, color: NSColor) {
         ctx.setLineCap(.butt)
-        ctx.setLineWidth(major ? (detailed ? 12 : 20) : 6)
-        ctx.setStrokeColor((v >= redline ? redBright : ink.withAlphaComponent(major ? 1 : 0.7)).cgColor)
-        ctx.move(to: point(v, face - 18))
-        ctx.addLine(to: point(v, face - (major ? 78 : 50)))
+        ctx.setLineWidth(width)
+        ctx.setStrokeColor(color.cgColor)
+        ctx.move(to: point(v, r0))
+        ctx.addLine(to: point(v, r1))
         ctx.strokePath()
     }
 
-    // Upright numerals.
+    // Fine minor ticks (yellow), majors (white), redline ticks (red) on the outer track.
     if detailed {
-        let font = NSFont.systemFont(ofSize: 74, weight: .medium)
-        for n in 0...Int(maxValue) {
-            let v = CGFloat(n)
-            let text = NSAttributedString(string: "\(n)", attributes: [
-                .font: font, .foregroundColor: v >= 8 ? redBright : ink,
-            ])
-            let size = text.size()
-            let at = point(v, face - 130)
-            text.draw(at: CGPoint(x: at.x - size.width / 2, y: at.y - size.height / 2 + 2))
+        for i in 0...Int(maxValue * 5) where i % 5 != 0 {
+            let v = CGFloat(i) / 5
+            tick(v, from: outer - 10, to: outer - 40, width: 4.5,
+                 color: v >= redline ? redLit : yellow.withAlphaComponent(0.8))
         }
     }
+    for i in 0...Int(maxValue) {
+        let v = CGFloat(i)
+        tick(v, from: outer - 8, to: ringOuter + 6, width: detailed ? 11 : 20, color: v > redline ? redLit : ink)
+    }
+    // Redline band along the outer edge.
+    ctx.setLineCap(.butt)
+    ctx.setLineWidth(detailed ? 10 : 22)
+    ctx.setStrokeColor(redLit.cgColor)
+    ctx.addArc(center: center, radius: outer - (detailed ? 6 : 12), startAngle: angle(redline), endAngle: angle(maxValue),
+               clockwise: true)
+    ctx.strokePath()
 
-    // Digital window in the lower face, where the car shows speed; here, a small activity trace.
+    // Red numeral ring with a little depth.
+    let ring = NSBezierPath()
+    ring.appendOval(in: circle(ringOuter))
+    ring.appendOval(in: circle(ringInner))
+    ring.windingRule = .evenOdd
+    NSGradient(colors: [redLit, red, rgb(0x9E0C24)], atLocations: [0, 0.55, 1], colorSpace: .sRGB)!.draw(in: ring, angle: -90)
+
+    // Black center.
+    NSGradient(colors: [rgb(0x15171C), rgb(0x050608)])!
+        .draw(fromCenter: CGPoint(x: center.x, y: center.y + 50), radius: 0, toCenter: center, radius: ringInner, options: [])
+
+    // Numerals on the ring.
     if detailed {
-        let window = CGRect(x: center.x - 92, y: center.y - 222, width: 184, height: 74)
-        let path = NSBezierPath(roundedRect: window, xRadius: 14, yRadius: 14)
-        rgb(0x050608).setFill()
-        path.fill()
-        rgb(0x2A2F3A).setStroke()
-        path.lineWidth = 3
-        path.stroke()
+        let font = NSFont.systemFont(ofSize: 60, weight: .bold)
+        for n in 0...Int(maxValue) {
+            let text = NSAttributedString(string: "\(n)", attributes: [.font: font, .foregroundColor: ink])
+            let size = text.size()
+            let at = point(CGFloat(n), (ringOuter + ringInner) / 2)
+            text.draw(at: CGPoint(x: at.x - size.width / 2, y: at.y - size.height / 2 + 1))
+        }
+
+        // Digital readout in the lower center, where the car shows speed: a small activity trace.
         let bars: [CGFloat] = [0.30, 0.45, 0.35, 0.60, 0.50, 0.80, 0.65, 0.95]
-        let barWidth: CGFloat = 12, gap: CGFloat = 7
+        let barWidth: CGFloat = 11, gap: CGFloat = 7, height: CGFloat = 52
         let total = CGFloat(bars.count) * barWidth + CGFloat(bars.count - 1) * gap
         for (i, h) in bars.enumerated() {
-            let x = window.midX - total / 2 + CGFloat(i) * (barWidth + gap)
-            let bar = CGRect(x: x, y: window.minY + 14, width: barWidth, height: (window.height - 28) * h)
-            ink.withAlphaComponent(i == bars.count - 1 ? 1 : 0.75).setFill()
+            let bar = CGRect(x: center.x - total / 2 + CGFloat(i) * (barWidth + gap), y: center.y - 140,
+                             width: barWidth, height: height * h)
+            ink.withAlphaComponent(i == bars.count - 1 ? 1 : 0.7).setFill()
             NSBezierPath(roundedRect: bar, xRadius: 3, yRadius: 3).fill()
         }
     }
 
-    // Needle: tapered, red, with a short counterweight tail.
-    let value: CGFloat = 5.6
-    let tipRadius = face - 34
+    // Needle: long, tapered, yellow, reaching over the outer ticks; short tail behind the hub.
+    let value: CGFloat = 6.5
+    let tipRadius = outer - 22
     let a = angle(value)
     let dir = CGPoint(x: cos(a), y: sin(a))
     let normal = CGPoint(x: -dir.y, y: dir.x)
-    let baseHalf: CGFloat = detailed ? 18 : 26
-    let tipHalf: CGFloat = detailed ? 6 : 11
-    let tail: CGFloat = 70
+    let baseHalf: CGFloat = detailed ? 14 : 24
+    let tipHalf: CGFloat = detailed ? 4.5 : 10
+    let tail: CGFloat = 64
+    func at(_ along: CGFloat, _ across: CGFloat) -> CGPoint {
+        CGPoint(x: center.x + dir.x * along + normal.x * across, y: center.y + dir.y * along + normal.y * across)
+    }
     let needle = CGMutablePath()
-    needle.move(to: CGPoint(x: center.x - dir.x * tail + normal.x * baseHalf, y: center.y - dir.y * tail + normal.y * baseHalf))
-    needle.addLine(to: CGPoint(x: center.x + dir.x * tipRadius + normal.x * tipHalf, y: center.y + dir.y * tipRadius + normal.y * tipHalf))
-    needle.addLine(to: CGPoint(x: center.x + dir.x * tipRadius - normal.x * tipHalf, y: center.y + dir.y * tipRadius - normal.y * tipHalf))
-    needle.addLine(to: CGPoint(x: center.x - dir.x * tail - normal.x * baseHalf, y: center.y - dir.y * tail - normal.y * baseHalf))
+    needle.move(to: at(-tail, baseHalf))
+    needle.addLine(to: at(tipRadius, tipHalf))
+    needle.addLine(to: at(tipRadius, -tipHalf))
+    needle.addLine(to: at(-tail, -baseHalf))
     needle.closeSubpath()
     ctx.saveGState()
     ctx.setShadow(offset: CGSize(width: 0, height: -6), blur: 14, color: NSColor.black.withAlphaComponent(0.6).cgColor)
-    ctx.setFillColor(redBright.cgColor)
+    ctx.setFillColor(yellow.cgColor)
     ctx.addPath(needle)
     ctx.fillPath()
     ctx.restoreGState()
 
-    // Hub: black cap with a machined edge.
-    let hub: CGFloat = detailed ? 52 : 76
-    NSGradient(colors: [rgb(0x6B7280), rgb(0x1F2329)])!.draw(in: NSBezierPath(ovalIn: circle(hub)), angle: -90)
-    NSGradient(colors: [rgb(0x2A2E36), rgb(0x0B0C0F)])!.draw(in: NSBezierPath(ovalIn: circle(hub - 8)), angle: -90)
+    // Hub: polished silver cap.
+    let hub: CGFloat = detailed ? 40 : 62
+    ctx.saveGState()
+    ctx.setShadow(offset: CGSize(width: 0, height: -4), blur: 10, color: NSColor.black.withAlphaComponent(0.6).cgColor)
+    rgb(0x9CA3AF).setFill()
+    disc(hub).fill()
+    ctx.restoreGState()
+    NSGradient(colors: [rgb(0xFFFFFF), rgb(0xC9CED6), rgb(0x7B828C), rgb(0xD1D5DB)],
+               atLocations: [0, 0.35, 0.7, 1], colorSpace: .sRGB)!.draw(in: disc(hub), angle: -60)
 
     NSGraphicsContext.restoreGraphicsState()
     return rep
