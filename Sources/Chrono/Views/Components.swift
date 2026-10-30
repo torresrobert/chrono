@@ -245,8 +245,9 @@ struct ProcessList: View {
             VStack(spacing: 5) {
                 ForEach(processes) { process in
                     HStack(spacing: 7) {
-                        AppIcon(pid: process.pid)
+                        AppIcon(pid: process.pid, isSimulator: process.isSimulator)
                         Text(process.name).lineLimit(1).truncationMode(.tail)
+                        if process.isSimulator { SimulatorBadge() }
                         Spacer(minLength: 8)
                         Text(value(process)).monospacedDigit().foregroundStyle(Theme.textSecondary)
                     }
@@ -257,11 +258,29 @@ struct ProcessList: View {
     }
 }
 
+/// Marks a process that belongs to a running Simulator device, not to macOS itself.
+private struct SimulatorBadge: View {
+    var body: some View {
+        Text("Simulator")
+            .font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(Theme.textSecondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1.5)
+            .background(Capsule().fill(Theme.border))
+            .fixedSize()
+            .accessibilityLabel("Running in Simulator")
+    }
+}
+
 private struct AppIcon: View {
     let pid: pid_t
+    var isSimulator = false
 
     var body: some View {
-        if let icon = NSRunningApplication(processIdentifier: pid)?.icon {
+        if isSimulator {
+            Image(systemName: "iphone").font(.system(size: 10)).frame(width: 15, height: 15)
+                .foregroundStyle(Theme.textSecondary)
+        } else if let icon = NSRunningApplication(processIdentifier: pid)?.icon {
             Image(nsImage: icon).resizable().frame(width: 15, height: 15)
         } else {
             Image(systemName: "terminal").font(.system(size: 9)).frame(width: 15, height: 15)

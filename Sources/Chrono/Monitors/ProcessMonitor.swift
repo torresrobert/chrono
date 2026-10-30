@@ -6,6 +6,7 @@ struct ProcessUsage: Identifiable {
     let name: String
     let cpu: Double        // fraction of one core (1.0 == 100%)
     let memory: UInt64     // physical footprint, bytes
+    var isSimulator = false  // runs inside an iOS/watchOS/visionOS Simulator runtime
     var id: pid_t { pid }
 }
 
@@ -13,7 +14,7 @@ struct ProcessUsage: Identifiable {
 /// without root, which covers the apps people actually care about in a menu bar monitor.
 final class ProcessMonitor {
     private var previous: [pid_t: (cpuTime: UInt64, at: Double)] = [:]
-    private var names: [pid_t: String] = [:]
+    private var identities: [pid_t: (name: String, isSimulator: Bool)] = [:]
 
     func sample() -> [ProcessUsage] {
         let capacity = Int(proc_listallpids(nil, 0)) + 64
@@ -41,15 +42,17 @@ final class ProcessMonitor {
             if let before = previous[pid], now > before.at, cpuTime >= before.cpuTime {
                 cpu = Double(cpuTime - before.cpuTime) * MachTime.nanosPerTick / 1e9 / (now - before.at)
             }
-            result.append(ProcessUsage(pid: pid, name: name(for: pid), cpu: cpu, memory: usage.ri_phys_footprint))
+            let identity = identity(for: pid)
+            result.append(ProcessUsage(pid: pid, name: identity.name, cpu: cpu, memory: usage.ri_phys_footprint,
+                                       isSimulator: identity.isSimulator))
         }
         previous = next
-        names = names.filter { next[$0.key] != nil }
+        identities = identities.filter { next[$0.key] != nil }
         return result
     }
 
-    private func name(for pid: pid_t) -> String {
-        if let cached = names[pid] { return cached }
+    private func identity(for pid: pid_t) -> (name: String, isSimulator: Bool) {
+        if let cached = identities[pid] { return cached }
         let name: String
         if let app = NSRunningApplication(processIdentifier: pid), let localized = app.localizedName {
             name = localized
@@ -57,7 +60,16 @@ final class ProcessMonitor {
             var buf = [CChar](repeating: 0, count: 256)
             name = proc_name(pid, &buf, UInt32(buf.count)) > 0 ? String(cString: buf) : "pid \(pid)"
         }
-        names[pid] = name
-        return name
+        var path = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+        let isSimulator = proc_pidpath(pid, &path, UInt32(path.count)) > 0
+            && Self.isSimulatorPath(String(cString: path))
+        identities[pid] = (name, isSimulator)
+        return (name, isSimulator)
+    }
+
+    /// Simulator processes execute from a runtime root (`….simruntime/Contents/Resources/RuntimeRoot/…`),
+    /// mounted from a cryptex or installed under CoreSimulator, which no macOS process does.
+    static func isSimulatorPath(_ path: String) -> Bool {
+        path.contains("/CoreSimulator/") || path.contains(".simruntime/")
     }
 }

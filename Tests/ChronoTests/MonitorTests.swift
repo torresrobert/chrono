@@ -61,3 +61,19 @@ struct LiveMonitorTests {
         for fan in sample.fans { #expect(fan.rpm >= 0) }
     }
 }
+
+struct SimulatorProcessTests {
+    @Test func recognizesSimulatorRuntimePaths() {
+        #expect(ProcessMonitor.isSimulatorPath(
+            "/private/var/run/com.apple.security.cryptexd/mnt/com.apple.iPhoneOS.SimulatorRuntime-v24.1/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 27.0.simruntime/Contents/Resources/RuntimeRoot/Applications/PosterBoard.app/PosterBoard"))
+        #expect(ProcessMonitor.isSimulatorPath(
+            "/Library/Developer/CoreSimulator/Volumes/iOS_23A343/Library/Developer/CoreSimulator/Profiles/Runtimes/iOS 26.0.simruntime/Contents/Resources/RuntimeRoot/usr/libexec/diagnosticd"))
+    }
+
+    @Test func leavesMacProcessesAlone() {
+        #expect(!ProcessMonitor.isSimulatorPath("/usr/libexec/diagnosticd"))
+        #expect(!ProcessMonitor.isSimulatorPath("/Applications/Xcode.app/Contents/Developer/Applications/Simulator.app/Contents/MacOS/Simulator"))
+        #expect(!ProcessMonitor.isSimulatorPath(
+            "/Library/Developer/PrivateFrameworks/CoreSimulator.framework/Versions/A/XPCServices/com.apple.CoreSimulator.CoreSimulatorService.xpc/Contents/MacOS/com.apple.CoreSimulator.CoreSimulatorService"))
+    }
+}
