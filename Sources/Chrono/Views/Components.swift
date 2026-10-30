@@ -50,55 +50,122 @@ struct Readout: View {
     }
 }
 
-/// Dash-style dial: a 270° sweep with tick marks, a value arc in the status color, and a
-/// redline zone in the accent color near the top of the range.
+/// Center-tach dial, after the app icon: a dark outer track with white major and fine yellow
+/// minor ticks, an accent-colored ring, and a black center holding the readout. A yellow needle
+/// sweeps 300°; ticks past `redline` turn red. The readout stays white until the reading needs
+/// attention (`level`, defaulting to the load thresholds), then turns amber or red.
 struct DialGauge: View {
     let fraction: Double
     let label: String
     var redline: Double = 0.85
-    var color: Color?
-    var size: CGFloat = 58
+    var level: StatusLevel?
+    var size: CGFloat = 64
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let sweep = 0.75
+    private static let needle = Color(hex: 0xE8D21C)
+    private static let redlineColor = Color(hex: 0xE3213F)
     private var clamped: Double { min(1, max(0, fraction)) }
 
+    private var readoutColor: Color {
+        switch level ?? StatusLevel(load: clamped) {
+        case .normal: Color(hex: 0xF3F4F6)
+        case .elevated: Color(hex: 0xFBBF24)
+        case .critical: Color(hex: 0xF87171)
+        }
+    }
+
     var body: some View {
-        let line = size * 0.085
+        let r = size / 2
         ZStack {
-            // Ticks
-            ForEach(0..<11) { i in
-                Capsule()
-                    .fill(Double(i) / 10 >= redline ? Theme.accent : Theme.textSecondary.opacity(0.45))
-                    .frame(width: 1.2, height: i % 5 == 0 ? size * 0.09 : size * 0.05)
-                    .offset(y: -size / 2 + size * 0.05)
-                    .rotationEffect(.degrees(-135 + Double(i) * 27))
+            Canvas { context, canvas in
+                let c = CGPoint(x: canvas.width / 2, y: canvas.height / 2)
+                func disc(_ radius: CGFloat) -> Path {
+                    Path(ellipseIn: CGRect(x: c.x - radius, y: c.y - radius, width: radius * 2, height: radius * 2))
+                }
+                // Value 0...1 → screen point; 0 at about 8 o'clock, 1 at about 4 o'clock.
+                func point(_ v: Double, _ radius: CGFloat) -> CGPoint {
+                    let theta = (240 - 300 * v) * .pi / 180
+                    return CGPoint(x: c.x + cos(theta) * radius, y: c.y - sin(theta) * radius)
+                }
+                func tick(_ v: Double, _ r0: CGFloat, _ r1: CGFloat, _ width: CGFloat, _ color: Color) {
+                    var path = Path()
+                    path.move(to: point(v, r0))
+                    path.addLine(to: point(v, r1))
+                    context.stroke(path, with: .color(color), lineWidth: width)
+                }
+
+                // Bezel and outer track.
+                context.fill(disc(r), with: .linearGradient(
+                    Gradient(colors: [Color(hex: 0x8A9099), Color(hex: 0x2A2E35), Color(hex: 0x4A4F57)]),
+                    startPoint: CGPoint(x: c.x, y: c.y - r), endPoint: CGPoint(x: c.x, y: c.y + r)))
+                context.fill(disc(r - 1.5), with: .color(Color(hex: 0x111317)))
+
+                // Ticks: fine yellow minors, white majors, red past the redline.
+                for i in 0...20 {
+                    let v = Double(i) / 20
+                    let major = i % 2 == 0
+                    let color = v > redline + 0.001 ? Self.redlineColor
+                        : major ? Color(hex: 0xF3F4F6) : Self.needle.opacity(0.75)
+                    tick(v, r * 0.92, major ? r * 0.78 : r * 0.84, major ? 1.4 : 0.9, color)
+                }
+                if redline < 1 {
+                    var band = Path()
+                    band.addArc(center: c, radius: r * 0.9, startAngle: .degrees(-(240 - 300 * redline)),
+                                endAngle: .degrees(-(240 - 300)), clockwise: false)
+                    context.stroke(band, with: .color(Self.redlineColor), lineWidth: 1.6)
+                }
+
+                // Accent ring and black center.
+                context.fill(disc(r * 0.74), with: .color(Settings.shared.accent.deep))
+                context.fill(disc(r * 0.56), with: .radialGradient(
+                    Gradient(colors: [Color(hex: 0x1A1D23), Color(hex: 0x050608)]),
+                    center: CGPoint(x: c.x, y: c.y - r * 0.15), startRadius: 0, endRadius: r * 0.6))
             }
-            // Track and redline zone
-            Circle().trim(from: 0, to: sweep)
-                .stroke(Theme.border, style: StrokeStyle(lineWidth: line, lineCap: .round))
-                .rotationEffect(.degrees(135))
-                .padding(size * 0.16)
-            Circle().trim(from: sweep * redline, to: sweep)
-                .stroke(Theme.accent.opacity(0.35), style: StrokeStyle(lineWidth: line, lineCap: .round))
-                .rotationEffect(.degrees(135))
-                .padding(size * 0.16)
-            // Value
-            Circle().trim(from: 0, to: max(0.001, sweep * clamped))
-                .stroke(color ?? Theme.load(clamped), style: StrokeStyle(lineWidth: line, lineCap: .round))
-                .rotationEffect(.degrees(135))
-                .padding(size * 0.16)
+
+            DialNeedle(length: r * 0.86, tail: r * 0.16, base: r * 0.07)
+                .fill(Self.needle)
+                .shadow(color: .black.opacity(0.5), radius: 1, y: 0.5)
+                .rotationEffect(.degrees(-150 + 300 * clamped))
                 .animation(reduceMotion ? nil : Theme.ease(0.35), value: clamped)
+
+            Circle()
+                .fill(LinearGradient(colors: [.white, Color(hex: 0xB8BEC7), Color(hex: 0x6B7280)],
+                                     startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(width: r * 0.2, height: r * 0.2)
+                .shadow(color: .black.opacity(0.5), radius: 1, y: 0.5)
+
+            // Readout above the needle, like the car's digital window, so it never gets covered.
             Text(label)
-                .font(.system(size: size * 0.22, weight: .semibold, design: .rounded).monospacedDigit())
-                .foregroundStyle(Theme.textPrimary)
+                .font(.system(size: size * 0.17, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(readoutColor)
                 .minimumScaleFactor(0.6)
-                .padding(.horizontal, size * 0.2)
-                .offset(y: size * 0.03)
+                .lineLimit(1)
+                .padding(.horizontal, 2.5)
+                .background(RoundedRectangle(cornerRadius: 2.5, style: .continuous).fill(Color(hex: 0x07080B).opacity(0.9)))
+                .frame(maxWidth: r * 1.0)
+                .offset(y: r * 0.32)
         }
         .frame(width: size, height: size)
         .accessibilityElement()
         .accessibilityLabel(label)
+    }
+}
+
+/// A tapered needle pointing straight up from the center of its frame, with a short tail.
+private struct DialNeedle: Shape {
+    let length: CGFloat
+    let tail: CGFloat
+    let base: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let c = CGPoint(x: rect.midX, y: rect.midY)
+        var path = Path()
+        path.move(to: CGPoint(x: c.x - base, y: c.y + tail))
+        path.addLine(to: CGPoint(x: c.x - base * 0.3, y: c.y - length))
+        path.addLine(to: CGPoint(x: c.x + base * 0.3, y: c.y - length))
+        path.addLine(to: CGPoint(x: c.x + base, y: c.y + tail))
+        path.closeSubpath()
+        return path
     }
 }
 

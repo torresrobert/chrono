@@ -52,15 +52,20 @@ enum Accent: String, CaseIterable, Identifiable {
         }
     }
 
-    var color: Color {
+    private var hex: (light: UInt, dark: UInt) {
         switch self {
-        case .racingRed: Color(light: 0xC8102E, dark: 0xF0475A)
-        case .forecastlyBlue: Color(light: 0x274BB2, dark: 0x6D8CFF)
-        case .fescueGreen: Color(light: 0x357A56, dark: 0x55B685)
-        case .techsheetTeal: Color(light: 0x0C7B7F, dark: 0x3EBFC4)
-        case .graphite: Color(light: 0x374151, dark: 0x9CA3AF)
+        case .racingRed: (0xC8102E, 0xF0475A)
+        case .forecastlyBlue: (0x274BB2, 0x6D8CFF)
+        case .fescueGreen: (0x357A56, 0x55B685)
+        case .techsheetTeal: (0x0C7B7F, 0x3EBFC4)
+        case .graphite: (0x374151, 0x9CA3AF)
         }
     }
+
+    var color: Color { Color(light: hex.light, dark: hex.dark) }
+
+    /// The deep variant in every appearance, for things drawn as hardware (the dial's ring).
+    var deep: Color { Color(hex: hex.light) }
 }
 
 enum Theme {

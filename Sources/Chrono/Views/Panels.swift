@@ -177,7 +177,7 @@ private struct MemoryPanel: View {
         PanelHeader(title: "Memory", symbol: Module.memory.symbol,
                     detail: "\(Format.bytes(mem.used)) of \(Format.bytes(mem.total))") {
             DialGauge(fraction: mem.usedFraction, label: Format.percent(mem.usedFraction),
-                      color: Theme.pressure(mem.pressure))
+                      level: StatusLevel(pressure: mem.pressure))
         }
         VStack(alignment: .leading, spacing: 8) {
             SegmentedBar(segments: [
@@ -312,7 +312,7 @@ private struct SensorsPanel: View {
             if let cpu = sensors.cpu {
                 // Dial spans 20–110 °C with the redline at 90 °C (the throttling neighborhood).
                 DialGauge(fraction: (cpu - 20) / 90, label: Format.temperature(cpu), redline: 70.0 / 90,
-                          color: Theme.temperature(cpu))
+                          level: StatusLevel(celsius: cpu))
             } else {
                 Readout(value: "–")
             }
@@ -375,7 +375,7 @@ private struct BatteryPanel: View {
             PanelHeader(title: "Battery", symbol: Module.battery.symbol,
                         detail: battery.isCharging ? "Charging" : battery.isPluggedIn ? "On power adapter" : "On battery") {
                 DialGauge(fraction: battery.level, label: Format.percent(battery.level), redline: 1,
-                          color: battery.level < 0.2 ? Theme.negative : Theme.positive)
+                          level: StatusLevel(battery: battery))
             }
             VStack(spacing: 4) {
                 StatRow(label: "Power source", value: battery.isPluggedIn ? "Power adapter" : "Battery")
