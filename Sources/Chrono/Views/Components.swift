@@ -84,7 +84,7 @@ struct DialGauge: View {
                 }
                 // Value 0...1 → screen point; 0 at about 8 o'clock, 1 at about 4 o'clock.
                 func point(_ v: Double, _ radius: CGFloat) -> CGPoint {
-                    let theta = (240 - 300 * v) * .pi / 180
+                    let theta = CGFloat((240 - 300 * v) * .pi / 180)
                     return CGPoint(x: c.x + cos(theta) * radius, y: c.y - sin(theta) * radius)
                 }
                 func tick(_ v: Double, _ r0: CGFloat, _ r1: CGFloat, _ width: CGFloat, _ color: Color) {
