@@ -17,7 +17,7 @@ trap 'rm -f "$KEY_FILE"' EXIT
 print -r -- "$ASC_PRIVATE_KEY" > "$KEY_FILE"
 
 ./scripts/bundle.sh
-if ! codesign -dvv build/Chrono.app 2>&1 | grep -q "^Authority=Developer ID Application"; then
+if [[ "$(codesign -dvv build/Chrono.app 2>&1)" != *$'\nAuthority=Developer ID Application'* ]]; then
     echo "Chrono.app isn't signed with a Developer ID certificate, so it can't be notarized." >&2
     exit 1
 fi
