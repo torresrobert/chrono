@@ -82,9 +82,6 @@ brew tap torresrobert/chrono https://github.com/torresrobert/chrono
 brew install --cask torresrobert/chrono/chrono
 ```
 
-Chrono isn't notarized yet, so macOS blocks it the first time: open it once, then choose
-**Open Anyway** in System Settings › Privacy & Security.
-
 ### Build from source
 
 ```sh

@@ -24,9 +24,4 @@ cask "chrono" do
     "~/Library/Application Support/me.torresrobert.chrono",
     "~/Library/Preferences/me.torresrobert.chrono.plist",
   ]
-
-  caveats <<~EOS
-    Chrono isn't notarized yet, so macOS blocks it the first time. Open it once, then choose
-    Open Anyway in System Settings > Privacy & Security. That also allows the chrono command.
-  EOS
 end

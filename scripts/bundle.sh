@@ -35,8 +35,15 @@ cat > "$APP/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-codesign --force --sign - --timestamp=none "$APP"
-echo "Built $APP"
+# Developer ID with the hardened runtime when the certificate is in the keychain (needed for
+# notarization), ad hoc otherwise. SIGN_IDENTITY overrides.
+IDENTITY="${SIGN_IDENTITY:-$(security find-identity -v -p codesigning | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')}"
+if [[ -n "$IDENTITY" ]]; then
+    codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
+else
+    codesign --force --sign - --timestamp=none "$APP"
+fi
+echo "Built $APP (signed: ${IDENTITY:-ad hoc})"
 
 if [[ "${1:-}" == "--install" ]]; then
     pkill -x Chrono 2>/dev/null || true
