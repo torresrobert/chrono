@@ -46,6 +46,10 @@ enum Diagnostics {
             store.refreshNow()
             Thread.sleep(forTimeInterval: 0.5)
         }
+        // The last reading spans the app's default interval, so Chrono's own share of the CPU
+        // isn't inflated by sampling four times as often.
+        Thread.sleep(forTimeInterval: 2)
+        store.refreshNow()
 
         // Draw through a real NSHostingView in an offscreen window: ImageRenderer mis-resolves
         // dynamic colors (a translucent veil over everything), while the AppKit path matches the

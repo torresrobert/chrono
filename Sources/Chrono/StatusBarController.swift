@@ -56,9 +56,6 @@ private final class ModuleItem: NSObject, NSPopoverDelegate {
         popover.behavior = .transient
         popover.animates = true
         popover.delegate = self
-        let host = NSHostingController(rootView: PanelView(module: module, store: store))
-        host.sizingOptions = .preferredContentSize
-        popover.contentViewController = host
         return popover
     }()
 
@@ -118,6 +115,11 @@ private final class ModuleItem: NSObject, NSPopoverDelegate {
                 // instead of showing "Sampling…" until the next regular tick.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.store.refresh() }
             }
+            // Built for each opening and dropped on close: a closed panel's view would otherwise keep
+            // re-rendering on every update.
+            let host = NSHostingController(rootView: PanelView(module: module, store: store))
+            host.sizingOptions = .preferredContentSize
+            popover.contentViewController = host
             popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             popover.contentViewController?.view.window?.makeKey()
         }
@@ -146,6 +148,7 @@ private final class ModuleItem: NSObject, NSPopoverDelegate {
     }
 
     func popoverDidClose(_ notification: Notification) {
+        popover.contentViewController = nil
         if usesProcesses { store.processConsumers = max(0, store.processConsumers - 1) }
     }
 }
