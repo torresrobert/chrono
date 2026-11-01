@@ -47,7 +47,7 @@ modules, captions, the update interval, °C/°F, the accent color and launch at 
 ### In the terminal
 
 The same readings and history are available as `chrono`, a live terminal view: handy over SSH,
-where there's no menu bar. Link it onto your PATH once:
+where there's no menu bar. Homebrew installs it for you; otherwise link it onto your PATH once:
 
 ```sh
 ln -s /Applications/Chrono.app/Contents/MacOS/Chrono /usr/local/bin/chrono   # or ~/.local/bin
@@ -74,6 +74,16 @@ the file to clear it.
 
 Download the latest release from [Releases](https://github.com/torresrobert/chrono/releases), unzip,
 and move **Chrono.app** to Applications. Requires macOS 14 or later on Apple Silicon.
+
+Or with [Homebrew](https://brew.sh), which also puts `chrono` on your path:
+
+```sh
+brew tap torresrobert/chrono https://github.com/torresrobert/chrono
+brew install --cask torresrobert/chrono/chrono
+```
+
+Chrono isn't notarized yet, so macOS blocks it the first time: open it once, then choose
+**Open Anyway** in System Settings › Privacy & Security.
 
 ### Build from source
 
