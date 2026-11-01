@@ -26,7 +26,7 @@ Each module is its own menu bar item; click one for the full panel.
 | Module | Menu bar | Panel |
 |---|---|---|
 | **CPU** | history graph + load | user / system / idle, load averages, per-core load grouped by cluster, top processes, uptime |
-| **GPU** | history graph + load | device and renderer utilization, memory in use, temperature |
+| **GPU** | history graph + load | busy time and renderer utilization, clock speed, power, memory in use, temperature |
 | **Memory** | ring + usage | app / wired / compressed / cached breakdown, swap, pressure, top processes |
 | **Disk** | read / write | throughput history, capacity of every mounted volume |
 | **Network** | up / down | throughput history, peaks, primary interface and local IP, totals since boot |
@@ -93,7 +93,7 @@ Everything is read in-process, without spawning `ps`, `top` or other tools:
 | CPU | `host_processor_info` tick deltas; core clusters from `hw.perflevelN.*` |
 | Memory | `host_statistics64` (the same accounting as Activity Monitor), `vm.swapusage`, `kern.memorystatus_vm_pressure_level` |
 | Processes | `proc_pid_rusage` — sampled only while a CPU or Memory panel is open |
-| GPU | IOKit `IOAccelerator` → `PerformanceStatistics` |
+| GPU | IOKit `IOAccelerator` → `PerformanceStatistics`; clock and power from IOReport (`GPU Performance States`, `GPU Energy`) |
 | Disk | IOKit `IOBlockStorageDriver` statistics; capacity as Finder reports it |
 | Network | 64-bit interface counters from `NET_RT_IFLIST2` |
 | History | 1-minute buckets kept for a day, rolled into 15-minute buckets kept for 30 days ([`HistoryArchive.swift`](Sources/Chrono/HistoryArchive.swift)) |
@@ -110,6 +110,10 @@ Chrono uses about 1–2% of one core at the default 2-second interval.
 - Processes owned by other users (root daemons, `WindowServer`) can't be read without root, so
   they don't appear in the top-process lists.
 - Temperatures are grouped averages and maxima, not named per-core sensors.
+- GPU busy time is how much of the time the GPU had work, not how hard it worked: a local model
+  keeps it near 100% whatever the load. Clock and power show the difference. They come from
+  IOReport, a private interface (the one `powermetrics` uses), so a future macOS could remove
+  them; Chrono then hides those rows.
 - Apple Silicon only.
 
 ## Development

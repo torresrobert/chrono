@@ -7,7 +7,7 @@ let package = Package(
     targets: [
         .target(
             name: "CSensors",
-            linkerSettings: [.linkedFramework("IOKit"), .linkedFramework("CoreFoundation")]
+            linkerSettings: [.linkedFramework("IOKit"), .linkedFramework("CoreFoundation"), .linkedLibrary("IOReport")]
         ),
         .executableTarget(
             name: "Chrono",

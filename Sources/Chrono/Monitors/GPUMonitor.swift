@@ -1,3 +1,4 @@
+import CSensors
 import Foundation
 import IOKit
 
@@ -5,11 +6,18 @@ struct GPUSample {
     var utilization: Double = 0       // 0...1
     var renderer: Double = 0          // 0...1
     var memoryInUse: UInt64 = 0
+    /// Average clock while the GPU was busy, in MHz; nil if it never was, or where IOReport is unavailable.
+    var clock: Double?
+    /// GPU power in watts, from the chip's energy counters.
+    var power: Double?
 }
 
 final class GPUMonitor {
     let name: String
     let coreCount: Int?
+    /// Highest GPU clock in MHz, when the clock is readable.
+    let maxClock: Double?
+    private let readsPerformance: Bool
 
     init() {
         var name = "GPU"
@@ -20,6 +28,9 @@ final class GPUMonitor {
         }
         self.name = name
         self.coreCount = cores
+        readsPerformance = gpu_perf_open() == 0
+        let max = gpu_perf_max_megahertz()
+        maxClock = readsPerformance && max > 0 ? max : nil
     }
 
     func sample() -> GPUSample {
@@ -35,6 +46,13 @@ final class GPUMonitor {
             if let memory = stats["In use system memory"] as? Int {
                 sample.memoryInUse += UInt64(memory)
             }
+        }
+        // Utilization says how much of the time the GPU was busy, not how hard it worked: a
+        // local model keeps it busy nonstop. The clock and power show the difference.
+        var perf = gpu_perf_t()
+        if readsPerformance, gpu_perf_sample(&perf) == 0 {
+            if perf.active > 0, perf.megahertz > 0 { sample.clock = perf.megahertz }
+            if perf.watts >= 0 { sample.power = perf.watts }
         }
         return sample
     }

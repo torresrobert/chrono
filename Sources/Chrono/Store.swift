@@ -80,6 +80,7 @@ final class Store {
     @ObservationIgnored let clusters: [CoreCluster]
     @ObservationIgnored let gpuName: String
     @ObservationIgnored let gpuCores: Int?
+    @ObservationIgnored let gpuMaxClock: Double?
     @ObservationIgnored let hasFans: Bool
 
     /// Number of open panels that show the process list; processes are only sampled while > 0.
@@ -101,6 +102,7 @@ final class Store {
         clusters = sampler.cpu.clusters
         gpuName = sampler.gpu.name
         gpuCores = sampler.gpu.coreCount
+        gpuMaxClock = sampler.gpu.maxClock
         hasFans = sampler.sensors.hasFans
     }
 

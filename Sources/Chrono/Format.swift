@@ -53,6 +53,11 @@ enum Format {
         "\(Int(value.rounded()).formatted()) rpm"
     }
 
+    /// Clock speed, e.g. "1,182 MHz".
+    static func megahertz(_ value: Double) -> String {
+        "\(Int(value.rounded()).formatted()) MHz"
+    }
+
     static func watts(_ value: Double) -> String {
         value < 10 ? String(format: "%.1f W", value) : "\(Int(value.rounded())) W"
     }

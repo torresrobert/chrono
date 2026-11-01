@@ -19,7 +19,9 @@ enum Diagnostics {
             let loads = cluster.cores.map { Format.percent(cpu.cores[safe: $0] ?? 0) }
             print("  \(cluster.name.padding(toLength: 12, withPad: " ", startingAt: 0)) \(loads.joined(separator: " "))")
         }
-        print("GPU      \(Format.percent(store.gpu.utilization))  \(store.gpuName)  \(Format.bytes(store.gpu.memoryInUse)) in use")
+        let clock = store.gpu.clock.map { "  clock \(Format.megahertz($0)) of \(store.gpuMaxClock.map(Format.megahertz) ?? "?")" } ?? ""
+        let power = store.gpu.power.map { "  power \(Format.watts($0))" } ?? ""
+        print("GPU      \(Format.percent(store.gpu.utilization))  \(store.gpuName)  \(Format.bytes(store.gpu.memoryInUse)) in use" + clock + power)
         print("Memory   \(Format.bytes(mem.used)) / \(Format.bytes(mem.total))  app \(Format.bytes(mem.app)) wired \(Format.bytes(mem.wired)) compressed \(Format.bytes(mem.compressed)) cached \(Format.bytes(mem.cached))  swap \(Format.bytes(mem.swapUsed))  pressure \(mem.pressure.rawValue)")
         print("Network  ↓ \(Format.rate(net.downRate))  ↑ \(Format.rate(net.upRate))  \(net.interface ?? "-") \(net.address ?? "")")
         print("Disk     read \(Format.rate(disk.readRate))  write \(Format.rate(disk.writeRate))")

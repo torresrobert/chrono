@@ -37,6 +37,11 @@ struct FormatTests {
         #expect(Format.watts(118.4) == "118 W")
     }
 
+    @Test func megahertz() {
+        #expect(Format.megahertz(338) == "338 MHz")
+        #expect(Format.megahertz(1619.6) == "1,620 MHz")
+    }
+
     @Test func minutes() {
         #expect(Format.minutes(125) == "2:05")
     }

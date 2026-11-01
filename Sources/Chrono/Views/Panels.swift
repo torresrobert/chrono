@@ -156,8 +156,17 @@ private struct GPUPanel: View {
         MetricChart(store: store, series: [MetricSeries(metric: .gpu, name: "GPU", color: Series.primary)],
                     maxValue: 1, format: Format.percent)
         VStack(spacing: 4) {
-            StatRow(label: "Device", value: Format.percent(gpu.utilization), color: Series.primary)
+            StatRow(label: "Busy", value: Format.percent(gpu.utilization), color: Series.primary)
             StatRow(label: "Renderer", value: Format.percent(gpu.renderer))
+            // Busy time alone reads near 100% under any steady load; the clock shows how hard.
+            if let maxClock = store.gpuMaxClock {
+                StatRow(label: "Clock", value: gpu.clock.map {
+                    "\(Format.megahertz($0)) · \(Format.percent($0 / maxClock)) of max"
+                } ?? "Idle")
+            }
+            if let power = gpu.power {
+                StatRow(label: "Power", value: Format.watts(power))
+            }
             StatRow(label: "Memory in use", value: Format.bytes(gpu.memoryInUse))
             if let temp = store.sensors.gpu {
                 StatRow(label: "Temperature", value: Format.temperature(temp), valueColor: Theme.temperature(temp))

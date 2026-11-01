@@ -122,6 +122,10 @@ struct Dashboard {
         gauge(&line, gpu.utilization, level: StatusLevel(load: gpu.utilization), width: meterWidth)
         var gpuDetail = [store.gpuName]
         if let cores = store.gpuCores { gpuDetail.append("\(cores) cores") }
+        if let clock = gpu.clock, let maxClock = store.gpuMaxClock {
+            gpuDetail.append("\(Format.megahertz(clock)) of \(Format.megahertz(maxClock))")
+        }
+        if let power = gpu.power { gpuDetail.append(Format.watts(power)) }
         gpuDetail.append("\(Format.bytes(gpu.memoryInUse)) in use")
         line.add(gpuDetail.joined(separator: " · "), .muted)
         lines.append(line)
