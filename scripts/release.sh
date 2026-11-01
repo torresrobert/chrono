@@ -3,12 +3,18 @@
 # Homebrew cask at it, writing the zip's checksum into Casks/chrono.rb, so upload this exact file
 # as the release asset.
 #
-# Notarization reads a notarytool keychain profile (NOTARY_PROFILE, default chrono-notary):
-#   xcrun notarytool store-credentials chrono-notary --key <AuthKey.p8> --key-id <id> --issuer <id>
+# Notarization uses an App Store Connect API key from the environment: ASC_KEY_ID, ASC_ISSUER_ID
+# and ASC_PRIVATE_KEY (the .p8 file's contents), e.g. injected by a secrets manager.
 set -euo pipefail
 cd "${0:A:h}/.."
 
-PROFILE="${NOTARY_PROFILE:-chrono-notary}"
+if [[ -z "${ASC_KEY_ID:-}" || -z "${ASC_ISSUER_ID:-}" || -z "${ASC_PRIVATE_KEY:-}" ]]; then
+    echo "Set ASC_KEY_ID, ASC_ISSUER_ID and ASC_PRIVATE_KEY to notarize." >&2
+    exit 1
+fi
+KEY_FILE=$(mktemp -t chrono-asc)
+trap 'rm -f "$KEY_FILE"' EXIT
+print -r -- "$ASC_PRIVATE_KEY" > "$KEY_FILE"
 
 ./scripts/bundle.sh
 if ! codesign -dvv build/Chrono.app 2>&1 | grep -q "^Authority=Developer ID Application"; then
@@ -22,7 +28,7 @@ ZIP="build/Chrono-${VERSION}.zip"
 # without a network check, and the app is zipped again for release.
 rm -f "$ZIP"
 ditto -c -k --norsrc --noextattr --keepParent build/Chrono.app "$ZIP"
-xcrun notarytool submit "$ZIP" --keychain-profile "$PROFILE" --wait
+xcrun notarytool submit "$ZIP" --key "$KEY_FILE" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER_ID" --wait
 xcrun stapler staple build/Chrono.app
 spctl --assess --type execute build/Chrono.app
 
