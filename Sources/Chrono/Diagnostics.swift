@@ -4,7 +4,7 @@ import SwiftUI
 /// Headless modes for checking readings and layouts without clicking through the menu bar:
 ///   Chrono --dump            print current readings
 ///   Chrono --snapshot DIR [--scheme light|dark] [--range live|hour|day|week|month] [--history FILE]
-///                            render every panel and the menu bar strip to PNGs
+///                            render every panel, Settings and the menu bar strip to PNGs
 @MainActor
 enum Diagnostics {
     static func dump() {
@@ -55,8 +55,9 @@ enum Diagnostics {
         // dynamic colors (a translucent veil over everything), while the AppKit path matches the
         // live popover and also draws the footer's buttons.
         let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        for module in Module.allCases {
-            let host = NSHostingView(rootView: PanelView(module: module, store: store).background(Theme.background))
+        let scheme = dark ? "dark" : "light"
+        func render(_ view: some View, to name: String) {
+            let host = NSHostingView(rootView: view)
             host.frame.size = host.fittingSize
             let window = NSWindow(contentRect: CGRect(origin: CGPoint(x: -20000, y: 0), size: host.frame.size),
                                   styleMask: .borderless, backing: .buffered, defer: false)
@@ -66,11 +67,14 @@ enum Diagnostics {
             RunLoop.main.run(until: Date().addingTimeInterval(0.3))
             if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
                 host.cacheDisplay(in: host.bounds, to: rep)
-                try? rep.representation(using: .png, properties: [:])?
-                    .write(to: directory.appendingPathComponent("panel-\(module.rawValue)-\(dark ? "dark" : "light").png"))
+                try? rep.representation(using: .png, properties: [:])?.write(to: directory.appendingPathComponent(name))
             }
             window.orderOut(nil)
         }
+        for module in Module.allCases {
+            render(PanelView(module: module, store: store).background(Theme.background), to: "panel-\(module.rawValue)-\(scheme).png")
+        }
+        render(SettingsView(settings: Settings.shared, store: store), to: "settings-\(scheme).png")
 
         for labels in [true, false] {
             for (name, ink, background) in [("", MenuBarInk(colored: true, dark: true), Color(white: 0.16)),

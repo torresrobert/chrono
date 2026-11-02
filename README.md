@@ -47,7 +47,10 @@ modules, captions, the update interval, °C/°F, the accent color and launch at 
 ### In the terminal
 
 The same readings and history are available as `chrono`, a live terminal view: handy over SSH,
-where there's no menu bar. Homebrew installs it for you; otherwise link it onto your PATH once:
+where there's no menu bar. Homebrew installs it for you. Otherwise click **Install** next to
+Command-line tool in Chrono's Settings: it links `chrono` into the first of `/usr/local/bin`,
+`/opt/homebrew/bin` or `~/.local/bin` you can write to, without an admin password. Or link it
+yourself:
 
 ```sh
 ln -s /Applications/Chrono.app/Contents/MacOS/Chrono /usr/local/bin/chrono   # or ~/.local/bin

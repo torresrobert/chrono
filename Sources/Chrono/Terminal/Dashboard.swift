@@ -9,7 +9,7 @@ enum TerminalPalette {
     static let heat: UInt = 0xFB923C
     static let power: UInt = 0xFACC15
 
-    static func cluster(_ index: Int) -> UInt { [blue, violet, cyan][index % 3] }
+    static func cluster(_ index: Int) -> UInt { [0xF472B6, 0x2DD4BF, 0xA3E635][index % 3] }  // pink, teal, lime
 
     /// The color at reduced brightness, for the peak shading behind a chart's average.
     static func dimmed(_ color: UInt, by factor: Double = 0.4) -> UInt {

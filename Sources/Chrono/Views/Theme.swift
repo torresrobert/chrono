@@ -113,9 +113,12 @@ enum Series {
     static let heat = Color(light: 0xEA580C, dark: 0xFB923C)
     static let power = Color(light: 0xCA8A04, dark: 0xFACC15)
 
-    /// Identifies a core cluster in the per-core menu bar bars, in `Store.clusters` order.
+    /// Identifies a core cluster in the per-core menu bar bars, in `Store.clusters` order. Hues no
+    /// other series or status uses, so a cluster can't be read as User or System time, or as GPU.
     static func cluster(_ index: Int) -> Color {
-        [primary, secondary, tertiary][index % 3]
+        [Color(light: 0xDB2777, dark: 0xF472B6),   // pink
+         Color(light: 0x0D9488, dark: 0x2DD4BF),   // teal
+         Color(light: 0x65A30D, dark: 0xA3E635)][index % 3]  // lime
     }
 }
 

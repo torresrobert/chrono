@@ -56,6 +56,9 @@ struct SettingsView: View {
                         launchAtLogin = settings.launchAtLogin
                     }
             }
+            SwiftUI.Section("Terminal") {
+                CommandLineToolRow()
+            }
             SwiftUI.Section("This Mac") {
                 LabeledContent("Model", value: SystemInfo.current.model)
                 LabeledContent("Chip", value: SystemInfo.current.chip)
@@ -70,6 +73,55 @@ struct SettingsView: View {
         .frame(width: 440)
         .fixedSize(horizontal: false, vertical: true)
         .tint(Theme.accent)
+    }
+}
+
+/// Installs `chrono`, the terminal view, for copies of the app that Homebrew didn't install.
+private struct CommandLineToolRow: View {
+    @State private var status = CommandLineTool.standard.status
+    @State private var failure: String?
+
+    var body: some View {
+        LabeledContent {
+            switch status {
+            case .installed(_, byHomebrew: true), .taken:
+                EmptyView()
+            case .installed:
+                Button("Remove") { run { try CommandLineTool.standard.remove() } }
+            case .notInstalled:
+                Button("Install") { run { _ = try CommandLineTool.standard.install() } }
+            }
+        } label: {
+            Text("Command-line tool")
+            Text(detail).foregroundStyle(failure == nil ? Theme.textSecondary : Theme.negative)
+        }
+        .onAppear { status = CommandLineTool.standard.status }
+    }
+
+    private var detail: String {
+        if let failure { return failure }
+        switch status {
+        case .installed(let link, let byHomebrew):
+            let path = (link.path as NSString).abbreviatingWithTildeInPath
+            if byHomebrew { return "Installed by Homebrew at \(path)." }
+            return CommandLineTool.onDefaultPath(link.deletingLastPathComponent())
+                ? "Type chrono in Terminal. Installed at \(path)."
+                : "Installed at \(path). If your shell can't find chrono, add \((link.deletingLastPathComponent().path as NSString).abbreviatingWithTildeInPath) to your PATH."
+        case .taken(let link):
+            return "Another chrono is already at \((link.path as NSString).abbreviatingWithTildeInPath)."
+        case .notInstalled:
+            return "Shows these readings in Terminal, for SSH sessions with no menu bar."
+        }
+    }
+
+    private func run(_ change: () throws -> Void) {
+        do {
+            try change()
+            failure = nil
+        } catch {
+            failure = error.localizedDescription
+        }
+        status = CommandLineTool.standard.status
     }
 }
 
