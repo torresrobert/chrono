@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "${0:A:h}/.."
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 APP="build/Chrono.app"
 
 swift build -c release --arch arm64
@@ -26,7 +26,7 @@ cat > "$APP/Contents/Info.plist" <<EOF
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleVersion</key><string>2</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
