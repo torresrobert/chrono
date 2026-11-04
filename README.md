@@ -62,6 +62,13 @@ busiest processes. It's the same binary as the app, so it uses your Chrono setti
 to it. Piped into another command it prints the current readings once. `chrono --help` lists
 the keys.
 
+`chrono --report` summarizes the last 30 days (`--days 7` for a shorter span): how much of the
+time this Mac was idle, busy, maxed out or overloaded, the averages and peaks, each day, and
+recent spikes with the processes behind them. A 15-minute window counts as maxed when CPU, GPU or
+memory averages 90% or more, and as overloaded when the load average is at least twice the core
+count, memory pressure holds at Warning or reaches Critical, swap-outs average 5 MB/s or more, or
+the thermal state reaches Serious. These thresholds are rules of thumb, not limits.
+
 ## Privacy
 
 Chrono reads everything from local system interfaces and **makes no network connections** —
@@ -69,9 +76,12 @@ no analytics, no crash reporting, no update pings. There is no privileged helper
 asks for an admin password. The code is small enough to check that claim yourself:
 `grep -rn "URLSession\|NWConnection" Sources` comes back empty.
 
-History is stored only on your Mac, in `~/Library/Application Support/me.torresrobert.chrono/history.plist`
-(well under 1 MB for 30 days). It holds system-wide numbers only, no process names. Delete
-the file to clear it.
+History is stored only on your Mac, in `~/Library/Application Support/me.torresrobert.chrono`:
+`history.plist` holds system-wide numbers and `spikes.plist` holds the processes behind spikes
+(about 1 MB in all for 30 days). When CPU, memory or GPU stays above 90% for 30 seconds, Chrono
+saves the names of the busiest processes and how much CPU and memory they used, so you can see
+the cause later. It never saves file paths, command-line arguments or window titles. Turn this
+off in Settings, which also deletes the names, or delete the files to clear everything.
 
 ## Install
 
@@ -107,6 +117,7 @@ Everything is read in-process, without spawning `ps`, `top` or other tools:
 | Disk | IOKit `IOBlockStorageDriver` statistics; capacity as Finder reports it |
 | Network | 64-bit interface counters from `NET_RT_IFLIST2` |
 | History | 1-minute buckets kept for a day, rolled into 15-minute buckets kept for 30 days ([`HistoryArchive.swift`](Sources/Chrono/HistoryArchive.swift)) |
+| Spikes | CPU, memory or GPU averaging 90% or more over 30 seconds opens a spike; the busiest processes are sampled at the start and every 5 minutes while it lasts ([`SpikeLog.swift`](Sources/Chrono/SpikeLog.swift)) |
 | Sensors | AppleSMC ([`smc.c`](Sources/CSensors/smc.c)) for temperatures, fans and power; HID sensors ([`hid.c`](Sources/CSensors/hid.c)) as a fallback |
 
 SMC key layouts differ from chip to chip, so Chrono discovers sensors at launch by key prefix

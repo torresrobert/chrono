@@ -6,7 +6,7 @@ import Foundation
 @MainActor
 enum TerminalApp {
     static let usage = """
-    usage: chrono [--interval SECONDS]
+    usage: chrono [--interval SECONDS] | chrono --report [--days N]
 
     Chrono's live view for the terminal: CPU, GPU, memory, disk, network, sensors and the
     busiest processes, with the menu bar app's history charts.
@@ -17,10 +17,14 @@ enum TerminalApp {
       q          quit
 
     When output isn't a terminal, prints the current readings once.
+
+    --report prints a summary of the last 30 days (or --days N) and exits.
     """
 
     static func run(arguments: [String]) -> Never {
         var interval = Settings.shared.interval
+        var report = false
+        var days: Int?
         var rest = arguments[...]
         while let argument = rest.popFirst() {
             switch argument {
@@ -34,9 +38,24 @@ enum TerminalApp {
                     fail("--interval needs a number of seconds, 0.5 or more")
                 }
                 interval = value
+            case "--report":
+                report = true
+            case "--days":
+                guard let value = rest.popFirst().flatMap({ Int($0) }), (1...30).contains(value) else {
+                    fail("--days needs a whole number from 1 to 30")
+                }
+                days = value
             default:
                 fail("unknown option: \(argument)")
             }
+        }
+        if days != nil, !report { fail("--days only works with --report") }
+        if report {
+            // Saved files only: the default archive and log never write.
+            print(Report.text(archive: HistoryArchive(), spikes: SpikeLog().all,
+                              spikesEnabled: Settings.shared.logSpikeProcesses, now: Date(), days: days ?? 30,
+                              cores: ProcessInfo.processInfo.activeProcessorCount))
+            exit(0)
         }
         guard isatty(STDOUT_FILENO) == 1 else {
             Diagnostics.dump()

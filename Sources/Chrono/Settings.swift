@@ -99,6 +99,10 @@ final class Settings {
         didSet { defaults.set(cpuMenuBar.rawValue, forKey: "cpuMenuBar"); onChange?() }
     }
 
+    var logSpikeProcesses: Bool {
+        didSet { defaults.set(logSpikeProcesses, forKey: "logSpikeProcesses"); onChange?() }
+    }
+
     var accent: Accent {
         didSet { defaults.set(accent.rawValue, forKey: "accent") }
     }
@@ -128,6 +132,7 @@ final class Settings {
         showLabels = defaults.object(forKey: "showLabels") as? Bool ?? true
         menuBarStyle = defaults.string(forKey: "menuBarStyle").flatMap(MenuBarStyle.init(rawValue:)) ?? .color
         cpuMenuBar = defaults.string(forKey: "cpuMenuBar").flatMap(CPUMenuBarDisplay.init(rawValue:)) ?? .graph
+        logSpikeProcesses = defaults.object(forKey: "logSpikeProcesses") as? Bool ?? true
         accent = defaults.string(forKey: "accent").flatMap(Accent.init(rawValue:)) ?? .racingRed
     }
 

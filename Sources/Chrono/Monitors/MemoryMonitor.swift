@@ -2,6 +2,14 @@ import Foundation
 
 enum MemoryPressure: String {
     case normal = "Normal", warning = "Warning", critical = "Critical"
+
+    var level: Double {
+        switch self {
+        case .normal: 0
+        case .warning: 1
+        case .critical: 2
+        }
+    }
 }
 
 struct MemorySample {
@@ -13,6 +21,7 @@ struct MemorySample {
     var swapUsed: UInt64 = 0
     var swapTotal: UInt64 = 0
     var pressure: MemoryPressure = .normal
+    var swapOutRate: Double = 0  // bytes/sec
 
     var used: UInt64 { app + wired + compressed }
     var free: UInt64 { total > used ? total - used : 0 }
@@ -22,6 +31,13 @@ struct MemorySample {
 final class MemoryMonitor {
     private let total = UInt64(Sysctl.int("hw.memsize") ?? 0)
     private let pageSize = UInt64(vm_kernel_page_size)
+    private var previousSwapOuts: (count: UInt64, time: Double)?
+
+    /// Counters can reset, so a decrease (or no time passing) reports 0 rather than a negative rate.
+    static func swapOutRate(current: UInt64, previous: UInt64, seconds: Double, pageSize: UInt64) -> Double {
+        guard seconds > 0, current >= previous else { return 0 }
+        return Double(current - previous) * Double(pageSize) / seconds
+    }
 
     func sample() -> MemorySample {
         var stats = vm_statistics64_data_t()
@@ -41,6 +57,13 @@ final class MemoryMonitor {
         sample.wired = page(stats.wire_count)
         sample.compressed = page(stats.compressor_page_count)
         sample.cached = page(stats.external_page_count) + purgeable
+
+        let now = ProcessInfo.processInfo.systemUptime
+        if let before = previousSwapOuts {
+            sample.swapOutRate = Self.swapOutRate(current: stats.swapouts, previous: before.count,
+                                                  seconds: now - before.time, pageSize: pageSize)
+        }
+        previousSwapOuts = (stats.swapouts, now)
 
         if let swap = Sysctl.value("vm.swapusage", as: xsw_usage.self) {
             sample.swapUsed = swap.xsu_used
