@@ -25,6 +25,10 @@ enum TerminalPalette {
         case .memory, .download, .read: cyan
         case .temperature: heat
         case .power: power
+        case .load: blue
+        case .swapOut: violet
+        case .pressure: cyan
+        case .thermal: heat
         }
     }
 }
@@ -327,6 +331,10 @@ struct Dashboard {
         case .write: "Disk write"
         case .temperature: "CPU temperature"
         case .power: "Power"
+        case .load: "Load average"
+        case .swapOut: "Swap out"
+        case .pressure: "Memory pressure"
+        case .thermal: "Thermal state"
         }
     }
 
@@ -336,6 +344,8 @@ struct Dashboard {
         case .download, .upload, .read, .write: Format.rate(value)
         case .temperature: Format.temperature(value)
         case .power: Format.watts(value)
+        case .load, .pressure, .thermal: String(format: "%.1f", value)
+        case .swapOut: Format.rate(value)
         }
     }
 

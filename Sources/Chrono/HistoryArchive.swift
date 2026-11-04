@@ -7,6 +7,18 @@ import Observation
 
 enum Metric: String, CaseIterable, Codable {
     case cpu, memory, gpu, upload, download, read, write, temperature, power
+    case load, swapOut, pressure, thermal
+
+    /// 0 nominal, 1 fair, 2 serious, 3 critical. A switch, because raw values aren't a stable contract.
+    static func thermalLevel(_ state: ProcessInfo.ThermalState) -> Double {
+        switch state {
+        case .nominal: 0
+        case .fair: 1
+        case .serious: 2
+        case .critical: 3
+        @unknown default: 0
+        }
+    }
 }
 
 enum HistoryRange: String, CaseIterable, Identifiable {
@@ -161,7 +173,7 @@ struct MetricHistory: Equatable, Codable {
 // MARK: - Storage
 
 /// Buckets are packed as 14 bytes each (start, average, peak, count) to keep the file small:
-/// 9 metrics × (1,500 + 3,000) buckets is well under 1 MB.
+/// 13 metrics × (1,500 + 3,000) buckets is about 800 KB at most.
 extension Tier: Codable {
     private enum CodingKeys: String, CodingKey { case width, retention, closed, open }
     private static let referenceTime = 978_307_200  // 2001-01-01, so offsets fit in UInt32 until 2137

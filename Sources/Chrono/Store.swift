@@ -71,9 +71,15 @@ final class Store {
     private(set) var writeHistory = History()
     private(set) var temperatureHistory = History()
     private(set) var powerHistory = History()
+    private(set) var loadHistory = History()
+    private(set) var swapOutHistory = History()
+    private(set) var pressureHistory = History()
+    private(set) var thermalHistory = History()
 
     /// Long-term history behind the 1H–30D chart ranges.
     @ObservationIgnored let archive: HistoryArchive
+    /// Spike detection; nil in the terminal view and diagnostics modes, which never detect or write.
+    @ObservationIgnored let spikes: SpikeLog?
     /// Chart range, shared by every panel so switching panels keeps the same time window.
     var chartRange: HistoryRange = .live
 
@@ -83,7 +89,8 @@ final class Store {
     @ObservationIgnored let gpuMaxClock: Double?
     @ObservationIgnored let hasFans: Bool
 
-    /// Number of open panels that show the process list; processes are only sampled while > 0.
+    /// Number of open panels that show the process list. Processes are sampled while this is > 0,
+    /// or while the spike log wants a capture.
     @ObservationIgnored var processConsumers = 0
     /// Modules shown in the menu bar or open as a panel. Slower readings (sensors, volume
     /// capacity) are skipped for modules nobody is looking at.
@@ -97,8 +104,9 @@ final class Store {
     @ObservationIgnored private var inFlight = false
     @ObservationIgnored private var ticks = 0
 
-    init(archive: HistoryArchive? = nil) {
+    init(archive: HistoryArchive? = nil, spikes: SpikeLog? = nil) {
         self.archive = archive ?? HistoryArchive()
+        self.spikes = spikes
         clusters = sampler.cpu.clusters
         gpuName = sampler.gpu.name
         gpuCores = sampler.gpu.coreCount
@@ -120,7 +128,7 @@ final class Store {
     func refresh() {
         guard !inFlight else { return }
         inFlight = true
-        let wantsProcesses = processConsumers > 0
+        let wantsProcesses = processConsumers > 0 || spikes?.wantsProcesses == true
         // Sensors are skipped while nobody shows them, but read them every 30 seconds or so
         // regardless so temperature and power history has no holes.
         ticks += 1
@@ -161,16 +169,27 @@ final class Store {
         writeHistory.append(disk.writeRate)
         if let t = sensors.cpu { temperatureHistory.append(t) }
         if let p = sensors.systemPower { powerHistory.append(p) }
+        let load = cpu.load.0
+        let thermal = Metric.thermalLevel(ProcessInfo.processInfo.thermalState)
+        loadHistory.append(load)
+        swapOutHistory.append(memory.swapOutRate)
+        pressureHistory.append(memory.pressure.level)
+        thermalHistory.append(thermal)
 
         var values: [Metric: Double] = [
             .cpu: cpu.total, .memory: memory.usedFraction, .gpu: gpu.utilization,
             .upload: network.upRate, .download: network.downRate, .read: disk.readRate, .write: disk.writeRate,
+            .load: load, .swapOut: memory.swapOutRate, .pressure: memory.pressure.level, .thermal: thermal,
         ]
         if let fresh = s.sensors {
             values[.temperature] = fresh.cpu
             values[.power] = fresh.systemPower
         }
         archive.record(values)
+        if let spikes {
+            if let list = s.processes { spikes.receive(list) }
+            spikes.observe([.cpu: cpu.total, .memory: memory.usedFraction, .gpu: gpu.utilization])
+        }
         onUpdate?()
     }
 
@@ -185,6 +204,10 @@ final class Store {
         case .write: writeHistory
         case .temperature: temperatureHistory
         case .power: powerHistory
+        case .load: loadHistory
+        case .swapOut: swapOutHistory
+        case .pressure: pressureHistory
+        case .thermal: thermalHistory
         }
     }
 

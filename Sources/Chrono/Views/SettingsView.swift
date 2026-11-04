@@ -56,6 +56,12 @@ struct SettingsView: View {
                         launchAtLogin = settings.launchAtLogin
                     }
             }
+            SwiftUI.Section("History") {
+                Toggle(isOn: $settings.logSpikeProcesses) {
+                    Text("Name the processes behind spikes")
+                    Text("When CPU, memory or GPU stays above 90%, Chrono saves the names of the busiest processes so you can see the cause later. They stay on this Mac. Turning this off deletes them.")
+                }
+            }
             SwiftUI.Section("Terminal") {
                 CommandLineToolRow()
             }
