@@ -1,6 +1,6 @@
 cask "chrono" do
-  version "1.2.0"
-  sha256 "54fa476d4d6f678e565e1b6f0f6f402c5a9602bcb646d8f0a93129adb69ade4e"
+  version "1.2.1"
+  sha256 "fd2dd11dba75ec2fe58b21f906e77c9cf6ae4d57da3e42883fa14ab840e27bc5"
 
   url "https://github.com/torresrobert/chrono/releases/download/v#{version}/Chrono-#{version}.zip"
   name "Chrono"
