@@ -63,17 +63,31 @@ final class DiskMonitor {
         return (read, write)
     }
 
+    static func available(important: Int64?, plain: Int?) -> Int64 {
+        if let important, important > 0 { return important }
+        if let plain, plain > 0 { return Int64(plain) }
+        return 0
+    }
+
+    static func ordered(_ volumes: [VolumeInfo]) -> [VolumeInfo] {
+        volumes.sorted { a, b in
+            if (a.path == "/") != (b.path == "/") { return a.path == "/" }
+            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+        }
+    }
+
     private static func volumes() -> [VolumeInfo] {
-        let keys: [URLResourceKey] = [.volumeNameKey, .volumeTotalCapacityKey,
+        let keys: [URLResourceKey] = [.volumeNameKey, .volumeTotalCapacityKey, .volumeAvailableCapacityKey,
                                       .volumeAvailableCapacityForImportantUsageKey, .volumeIsBrowsableKey]
         let urls = FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: keys, options: [.skipHiddenVolumes]) ?? []
-        return urls.compactMap { url in
+        return ordered(urls.compactMap { url in
             guard let values = try? url.resourceValues(forKeys: Set(keys)),
                   values.volumeIsBrowsable != false,
                   let total = values.volumeTotalCapacity, total > 0 else { return nil }
-            let available = values.volumeAvailableCapacityForImportantUsage ?? 0
+            let available = available(important: values.volumeAvailableCapacityForImportantUsage,
+                                      plain: values.volumeAvailableCapacity)
             return VolumeInfo(name: values.volumeName ?? url.lastPathComponent, path: url.path,
                               total: Int64(total), available: available)
-        }
+        })
     }
 }
