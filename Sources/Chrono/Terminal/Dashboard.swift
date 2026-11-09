@@ -155,6 +155,19 @@ struct Dashboard {
         if let boot = disk.boot { line.add(" · \(Format.diskBytes(boot.available)) free on \(boot.name)", .muted) }
         lines.append(line)
 
+        let extraVolumes = disk.volumes.filter { $0.path != disk.boot?.path }
+        for v in extraVolumes.prefix(6) {
+            var line = label("")
+            gauge(&line, v.usedFraction, level: StatusLevel(load: v.usedFraction), width: meterWidth)
+            line.add("\(Format.diskBytes(v.available)) free of \(Format.diskBytes(v.total)) · \(v.name)", .muted)
+            lines.append(line)
+        }
+        if extraVolumes.count > 6 {
+            var line = label("")
+            line.add("+\(extraVolumes.count - 6) more", .muted)
+            lines.append(line)
+        }
+
         let network = store.network
         line = label("Network")
         rate(&line, "↓ ", network.downRate, color: TerminalPalette.cyan)

@@ -77,3 +77,21 @@ struct SimulatorProcessTests {
             "/Library/Developer/PrivateFrameworks/CoreSimulator.framework/Versions/A/XPCServices/com.apple.CoreSimulator.CoreSimulatorService.xpc/Contents/MacOS/com.apple.CoreSimulator.CoreSimulatorService"))
     }
 }
+
+struct DiskVolumeTests {
+    @Test func fallsBackToPlainAvailableCapacity() {
+        #expect(DiskMonitor.available(important: 5, plain: 7) == 5)
+        #expect(DiskMonitor.available(important: 0, plain: 7) == 7)
+        #expect(DiskMonitor.available(important: nil, plain: nil) == 0)
+    }
+
+    @Test func ordersBootFirstThenByName() {
+        let volumes = [
+            VolumeInfo(name: "Studio Offload", path: "/Volumes/Studio Offload", total: 100, available: 50),
+            VolumeInfo(name: "Macintosh HD", path: "/", total: 100, available: 50),
+            VolumeInfo(name: "Ginger", path: "/Volumes/Ginger", total: 100, available: 50),
+        ]
+        let ordered = DiskMonitor.ordered(volumes)
+        #expect(ordered.map(\.path) == ["/", "/Volumes/Ginger", "/Volumes/Studio Offload"])
+    }
+}
